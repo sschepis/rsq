@@ -1,0 +1,41 @@
+# Rust/Cargo files
+src/
+target/
+Cargo.toml
+Cargo.lock
+rust-toolchain
+.cargo/
+
+# Development files
+.git/
+.gitignore
+.vscode/
+.idea/
+*.iml
+
+# Build artifacts
+pkg/*.ts
+pkg/*.wasm.d.ts
+pkg/package.json
+
+# Documentation
+docs/
+examples/
+tests/
+*.test.js
+*.spec.js
+
+# Misc
+.DS_Store
+*.log
+*.swp
+.env
+.env.*
+
+# Keep only necessary files
+!pkg/rsq.js
+!pkg/rsq_bg.wasm
+!pkg/rsq.d.ts
+!pkg/rsq_bg.wasm.d.ts
+!README.md
+!LICENSE

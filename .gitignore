@@ -1,0 +1,121 @@
+# Rust/Cargo
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# WebAssembly
+/pkg/
+
+# Node.js
+/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn
+.pnp.*
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IDE - IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# IDE - Eclipse
+.project
+.classpath
+.settings/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Build output
+/dist/
+/build/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+
+# Debug logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test coverage
+/coverage/
+.nyc_output/
+
+# Temporary files
+*.swp
+*.swo
+*.tmp
+*.temp
+*.bak
+
+# Rust specific
+*.rlib
+*.rmeta
+*.so
+*.dylib
+*.dll
+*.exe
+
+# WebAssembly specific
+*.wasm
+*.wast
+*.wat
+!pkg/*.wasm
+
+# Documentation
+/docs/_site/
+/docs/.jekyll-cache/
+/docs/.jekyll-metadata
+
+# Dependencies lock files (except Cargo.toml)
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+bun.lockb
