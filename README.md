@@ -1,4 +1,4 @@
-# RSQ - Quantum Computing Library for Blockchain Mining
+# RSQ - Quantum Computing Library 
 
 A WebAssembly-powered quantum computing library designed for optimizing blockchain mining operations through quantum mechanical principles.
 
