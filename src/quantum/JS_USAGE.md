@@ -1,4 +1,6 @@
-# Using the Quantum Math Library from JavaScript
+# JavaScript Usage Guide
+
+This document provides examples of how to use the quantum library from JavaScript, including state manipulation, Hamiltonian evolution, noise modeling, and state reconstruction.
 
 ## Setup
 
@@ -38,9 +40,49 @@ const phaseAlignment = QuantumMath.getPhaseAlignmentThreshold();
 const zeroProximity = QuantumMath.getZeroProximityThreshold();
 ```
 
+## Quantum State Operations
+
+### State Initialization
+```javascript
+// Create a 2-qubit quantum state in computational basis
+const state = new QuantumState(2, BasisType.Computational);
+```
+
+### State Evolution
+```javascript
+// Create a Hamiltonian from Pauli terms
+const hamiltonian = new Hamiltonian([
+    HamiltonianTerm.PauliX,
+    HamiltonianTerm.PauliZ
+]);
+
+// Evolve state for 1.0 time units
+state.evolve(1.0, hamiltonian);
+```
+
+### Noise Application
+```javascript
+// Create depolarizing noise model with 10% error rate
+const noiseModel = new NoiseModel(NoiseType.Depolarizing(0.1));
+
+// Apply noise to quantum state
+state.applyNoise(noiseModel);
+```
+
+### State Reconstruction
+```javascript
+// Attempt state reconstruction
+try {
+    const reconstructed = state.reconstruct();
+    console.log('Reconstructed state:', reconstructed);
+} catch (error) {
+    console.error('Reconstruction failed:', error);
+}
+```
+
 ## Basic Operations
 
-### Creating Complex Numbers
+### Complex Numbers and Matrices
 ```javascript
 // Create a complex number (2 + 3i)
 const complex = new Complex(2.0, 3.0);

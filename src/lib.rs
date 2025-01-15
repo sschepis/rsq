@@ -1,4 +1,8 @@
 pub mod quantum;
+pub mod mining;
+
+// Register resonance module
+pub use quantum::resonance::{ResonanceFunction, QuantumResonanceOptimizer};
 
 use wasm_bindgen::prelude::*;
 use quantum::{Complex, ComplexMatrix};
@@ -11,6 +15,14 @@ pub use quantum::{
     QuantumAlgorithms,
     NoiseModel,
     QuantumTomography,
+    resonance,
+};
+
+// Re-export mining types
+pub use mining::{
+    MiningOptions,
+    NonceResult,
+    mine_async,
 };
 
 // Utility functions for quantum states

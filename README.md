@@ -198,3 +198,27 @@ If you use this library in your research, please cite:
   publisher = {GitHub},
   url = {https://github.com/sschepis/rsq}
 }
+
+## Stratum V1 Mining Example
+
+```rust
+use rsq::mining::{MiningOptions, stratum_v1::StratumClient};
+
+#[tokio::main]
+async fn main() {
+    let options = MiningOptions {
+        skew_factor: 0.19,
+        resonance_weight: 0.45,
+        prime_weight: 0.35,
+        learning_rate: 0.05,
+        chunk_size: 8192,
+        max_nonce: None,
+    };
+
+    let mut client = StratumClient::new("stratum+tcp://pool.example.com:3333", options);
+    client.connect("your_username", "your_password");
+
+    // The client will automatically handle mining jobs and submit shares
+    // as they are found using the quantum-enhanced mining algorithm
+}
+```

@@ -1,4 +1,263 @@
-# Quantum Math Library Documentation
+# Mathematical Foundations
+
+This document describes the mathematical concepts and algorithms used in the quantum library, including state reconstruction, Hamiltonian evolution, and noise modeling.
+
+## State Reconstruction
+
+### Mathematical Foundations
+```rust
+pub fn reconstruct_state(
+    measurements: &[Complex],    // Array of measurement outcomes
+    noise_model: NoiseModel      // Noise characteristics
+) -> Result<ComplexMatrix, String>
+```
+Implements quantum state reconstruction using maximum likelihood estimation:
+1. Let ρ be the density matrix to reconstruct
+2. Define likelihood function L(ρ) = Πᵢ Tr(Mᵢρ)
+3. Maximize L(ρ) subject to ρ ≥ 0 and Tr(ρ) = 1
+4. Use convex optimization with constraints
+
+### Error Analysis and Convergence
+
+#### Measurement Noise Model
+```rust
+pub struct MeasurementNoise {
+    pub variance: f64,        // σ²
+    pub bias: f64,            // μ
+    pub correlation_time: f64 // τ_c
+}
+```
+Measurement noise follows: ε_m ~ N(μ, σ²) with correlation time τ_c
+
+#### Reconstruction Error Bounds
+For N measurements, the reconstruction error is bounded by:
+ε_r ≤ C√(d²log(d)/N) + ε_m
+where:
+- C is a constant depending on measurement basis
+- d is Hilbert space dimension
+- ε_m is measurement noise
+
+#### Convergence Proof
+The maximum likelihood estimator converges as:
+P(||ρ_est - ρ_true|| > ε) ≤ 2d² exp(-Nε²/C)
+with probability at least 1 - δ when N ≥ (C/ε²)log(2d²/δ)
+
+#### Numerical Stability
+Condition number κ of reconstruction:
+κ = ||J||·||J⁻¹|| where J is Jacobian of measurement operator
+>>>>>>> REPLACE>
+
+# Mathematical Foundations
+
+This document describes the mathematical concepts and algorithms used in the quantum library, including state reconstruction, Hamiltonian evolution, and noise modeling.
+
+## State Reconstruction
+
+### Mathematical Foundations
+```rust
+pub fn reconstruct_state(
+    measurements: &[Complex],    // Array of measurement outcomes
+    noise_model: NoiseModel      // Noise characteristics
+) -> Result<ComplexMatrix, String>
+```
+Implements quantum state reconstruction using maximum likelihood estimation:
+1. Let ρ be the density matrix to reconstruct
+2. Define likelihood function L(ρ) = Πᵢ Tr(Mᵢρ)
+3. Maximize L(ρ) subject to ρ ≥ 0 and Tr(ρ) = 1
+4. Use convex optimization with constraints
+
+### Error Analysis
+- Measurement noise: ε_m ~ N(0, σ²)
+- Reconstruction error: ε_r = ||ρ_true - ρ_est||
+- Convergence rate: O(1/√N) where N is number of measurements
+
+## Hamiltonian Evolution
+
+### Mathematical Formulation
+```rust
+pub fn evolve_state(
+    state: &ComplexMatrix,    // Initial quantum state
+    hamiltonian: &ComplexMatrix,  // Hamiltonian operator
+    time: f64                 // Evolution time
+) -> ComplexMatrix
+```
+Implements unitary time evolution:
+U(t) = exp(-iHt/ħ)
+- Uses Trotter-Suzuki decomposition for efficient computation
+- Handles time-dependent Hamiltonians
+- Preserves unitarity and energy conservation
+
+### Error Analysis and Numerical Stability
+
+#### Trotter-Suzuki Decomposition
+For Hamiltonian H = ΣHᵢ, the decomposition error is:
+ε_t = ||e^(-iHt) - Πe^(-iHᵢt/n)|| ≤ C(t²/n)
+
+#### Numerical Precision Analysis
+Round-off error accumulates as:
+ε_n = O(√N ε_machine)
+where N is number of operations
+
+#### Decoherence Effects
+Lindblad master equation:
+dρ/dt = -i[H,ρ] + Σ(LᵢρLᵢ† - ½{Lᵢ†Lᵢ,ρ})
+Error scales as:
+ε_d = O(exp(-γt))
+
+#### Stability Conditions
+Time step Δt must satisfy:
+Δt < min(1/||H||, 1/γ)
+where γ is decoherence rate
+>>>>>>> REPLACE>
+
+# Mathematical Foundations
+
+This document describes the mathematical concepts and algorithms used in the quantum library, including state reconstruction, Hamiltonian evolution, and noise modeling.
+
+## State Reconstruction
+
+### Mathematical Foundations
+```rust
+pub fn reconstruct_state(
+    measurements: &[Complex],    // Array of measurement outcomes
+    noise_model: NoiseModel      // Noise characteristics
+) -> Result<ComplexMatrix, String>
+```
+Implements quantum state reconstruction using maximum likelihood estimation:
+1. Let ρ be the density matrix to reconstruct
+2. Define likelihood function L(ρ) = Πᵢ Tr(Mᵢρ)
+3. Maximize L(ρ) subject to ρ ≥ 0 and Tr(ρ) = 1
+4. Use convex optimization with constraints
+
+### Error Analysis
+- Measurement noise: ε_m ~ N(0, σ²)
+- Reconstruction error: ε_r = ||ρ_true - ρ_est||
+- Convergence rate: O(1/√N) where N is number of measurements
+
+## Hamiltonian Evolution
+
+### Mathematical Formulation
+```rust
+pub fn evolve_state(
+    state: &ComplexMatrix,    // Initial quantum state
+    hamiltonian: &ComplexMatrix,  // Hamiltonian operator
+    time: f64                 // Evolution time
+) -> ComplexMatrix
+```
+Implements unitary time evolution:
+U(t) = exp(-iHt/ħ)
+- Uses Trotter-Suzuki decomposition for efficient computation
+- Handles time-dependent Hamiltonians
+- Preserves unitarity and energy conservation
+
+### Error Sources
+- Trotter error: ε_t = O(t²/n)
+- Numerical precision: ε_n = O(ε_machine)
+- Decoherence effects: ε_d = O(γt)
+
+## Noise Modeling
+
+### Mathematical Framework
+```rust
+pub struct NoiseModel {
+    pub depolarizing_rate: f64,
+    pub dephasing_rate: f64,
+    pub amplitude_damping_rate: f64
+}
+```
+Models quantum noise channels:
+1. Depolarizing: E(ρ) = (1-p)ρ + pI/d
+2. Dephasing: E(ρ) = (1-p)ρ + pZρZ
+3. Amplitude damping: E(ρ) = Σᵢ AᵢρAᵢ†
+
+### Error Correction and Fault Tolerance
+
+#### Quantum Error Correction
+Stabilizer codes protect against:
+- Bit flip errors: X|0⟩ = |1⟩
+- Phase flip errors: Z|0⟩ = |0⟩, Z|1⟩ = -|1⟩
+- Combined errors: Y = iXZ
+
+#### Fault-Tolerant Thresholds
+Error correction works when:
+p < p_th ≈ 1% (surface code)
+where p is physical error rate
+
+#### Topological Protection
+Anyon braiding provides protection with:
+ε_top = O(exp(-L/ξ))
+where:
+- L is system size
+- ξ is correlation length
+
+#### Error Detection
+Syndrome measurement detects errors with:
+P(detect) = 1 - exp(-t/T₂)
+where T₂ is coherence time
+# Mathematical Foundations
+
+This document describes the mathematical concepts and algorithms used in the quantum library, including state reconstruction, Hamiltonian evolution, and noise modeling.
+
+## State Reconstruction
+
+### Mathematical Foundations
+```rust
+pub fn reconstruct_state(
+    measurements: &[Complex],    // Array of measurement outcomes
+    noise_model: NoiseModel      // Noise characteristics
+) -> Result<ComplexMatrix, String>
+```
+Implements quantum state reconstruction using maximum likelihood estimation:
+1. Let ρ be the density matrix to reconstruct
+2. Define likelihood function L(ρ) = Πᵢ Tr(Mᵢρ)
+3. Maximize L(ρ) subject to ρ ≥ 0 and Tr(ρ) = 1
+4. Use convex optimization with constraints
+
+### Error Analysis
+- Measurement noise: ε_m ~ N(0, σ²)
+- Reconstruction error: ε_r = ||ρ_true - ρ_est||
+- Convergence rate: O(1/√N) where N is number of measurements
+
+## Hamiltonian Evolution
+
+### Mathematical Formulation
+```rust
+pub fn evolve_state(
+    state: &ComplexMatrix,    // Initial quantum state
+    hamiltonian: &ComplexMatrix,  // Hamiltonian operator
+    time: f64                 // Evolution time
+) -> ComplexMatrix
+```
+Implements unitary time evolution:
+U(t) = exp(-iHt/ħ)
+- Uses Trotter-Suzuki decomposition for efficient computation
+- Handles time-dependent Hamiltonians
+- Preserves unitarity and energy conservation
+
+### Error Sources
+- Trotter error: ε_t = O(t²/n)
+- Numerical precision: ε_n = O(ε_machine)
+- Decoherence effects: ε_d = O(γt)
+
+## Noise Modeling
+
+### Mathematical Framework
+```rust
+pub struct NoiseModel {
+    pub depolarizing_rate: f64,
+    pub dephasing_rate: f64,
+    pub amplitude_damping_rate: f64
+}
+```
+Models quantum noise channels:
+1. Depolarizing: E(ρ) = (1-p)ρ + pI/d
+2. Dephasing: E(ρ) = (1-p)ρ + pZρZ
+3. Amplitude damping: E(ρ) = Σᵢ AᵢρAᵢ†
+
+### Error Correction
+- Quantum error correction codes
+- Fault-tolerant thresholds
+- Topological protection
 
 ## Constants
 
