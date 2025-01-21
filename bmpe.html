@@ -1,0 +1,1974 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quantum-Enhanced Bitcoin Miner</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #0a0a1a;
+            color: #00aaff;
+            padding: 20px;
+            margin: 0;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .layout-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+            min-height: calc(100vh - 40px);
+        }
+
+        .content-wrapper {
+            display: grid;
+            grid-template-rows: auto auto 1fr auto auto;
+            gap: 20px;
+        }
+
+        #header-row {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin: 0;
+        }
+
+        #controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        #visualizer {
+            grid-column: 1;
+            grid-row: 2;
+            background: #000;
+            border: 1px solid #00aaff;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            height: 400px;
+        }
+
+        #stats-panel {
+            grid-column: 1;
+            grid-row: 3;
+            background: #000;
+            border: 1px solid #00aaff;
+            border-radius: 5px;
+            padding: 20px;
+            display: grid;
+            grid-template-rows: auto auto;
+            gap: 10px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .stat-label {
+            color: #00aaff;
+            font-size: 12px;
+        }
+
+        .stat-value {
+            color: #fff;
+            font-size: 14px;
+            font-family: monospace;
+        }
+
+        #worker-status {
+            grid-column: 1;
+            grid-row: 4;
+            background: #000;
+            border: 1px solid #00aaff;
+            border-radius: 5px;
+            padding: 10px;
+            height: 180px; /* Height for exactly 5 rows + header */
+            overflow-y: auto;
+        }
+
+        #worker-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: #00aaff;
+            table-layout: fixed;
+        }
+
+        #worker-table thead {
+            position: sticky;
+            top: 0;
+            background: #000;
+            z-index: 1;
+        }
+
+        #worker-table th:nth-child(1) { width: 20%; } /* Worker ID */
+        #worker-table th:nth-child(2) { width: 20%; } /* Status */
+        #worker-table th:nth-child(3) { width: 30%; } /* Hashes/s */
+        #worker-table th:nth-child(4) { width: 30%; } /* Last Active */
+
+        #worker-table tr {
+            height: 30px; /* Fixed height for each row */
+        }
+
+        #worker-table th {
+            background: rgba(0, 170, 255, 0.1);
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #00aaff;
+        }
+
+        #worker-table td {
+            padding: 8px;
+            border-bottom: 1px solid rgba(0, 170, 255, 0.2);
+        }
+
+        #worker-table tr:hover {
+            background: rgba(0, 170, 255, 0.05);
+        }
+
+        .worker-status-busy {
+            color: #ff5555;
+        }
+
+        .worker-status-available {
+            color: #55ff55;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        #glow-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            filter: blur(20px);
+            opacity: 0.5;
+            mix-blend-mode: screen;
+        }
+
+        #main {
+            grid-column: 1;
+            grid-row: 2 / span 4;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        #console {
+            grid-column: 1;
+            grid-row: 5;
+            background: #000;
+            padding: 20px;
+            border-radius: 5px;
+            height: 600px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.4;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        #nonce-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            color: #00aaff;
+        }
+
+        #nonce-table th {
+            background: rgba(0, 170, 255, 0.1);
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #00aaff;
+        }
+
+        #nonce-table td {
+            padding: 8px;
+            border-bottom: 1px solid rgba(0, 170, 255, 0.2);
+            font-family: monospace;
+        }
+
+        #nonce-table tr:hover {
+            background: rgba(0, 170, 255, 0.05);
+        }
+
+        #stats-log {
+            white-space: pre-wrap;
+            color: rgba(0, 170, 255, 0.8);
+            font-family: monospace;
+        }
+
+        button {
+            background: #00aaff;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: monospace;
+            font-weight: bold;
+            margin-right: 10px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: #00aaff;
+            box-shadow: 0 0 10px #00aaff;
+        }
+
+        button:disabled {
+            background: #003366;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #panel {
+            grid-column: 2;
+            grid-row: 2 / -1;
+            background: #000;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-y: auto;
+            max-height: calc(100vh - 100px);
+            position: sticky;
+            top: 20px;
+        }
+
+        .param-group {
+            margin-bottom: 20px;
+            border: 1px solid #00aaff;
+            padding: 10px;
+            border-radius: 3px;
+            transition: border-color 0.3s ease;
+        }
+
+        .param-group:hover {
+            border-color: #00aaff;
+            box-shadow: 0 0 10px rgba(0, 170, 255, 0.2);
+        }
+
+        .param-group h3 {
+            margin: 0 0 10px 0;
+            color: #00aaff;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        .param-row {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+
+        .param-row label {
+            flex: 1;
+        }
+
+        .param-row input {
+            width: 80px;
+            background: #0a0a1a;
+            border: 1px solid #00aaff;
+            color: #00aaff;
+            padding: 3px;
+            font-family: monospace;
+            transition: all 0.3s ease;
+        }
+
+        .param-row input:focus {
+            border-color: #00aaff;
+            box-shadow: 0 0 5px #00aaff;
+            outline: none;
+        }
+
+        .param-row input[type="range"] {
+            width: 100px;
+            accent-color: #00aaff;
+        }
+
+        .param-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 15px;
+            width: 15px;
+            border-radius: 50%;
+            background: #00aaff;
+            cursor: pointer;
+            box-shadow: 0 0 5px #00aaff;
+            transition: all 0.3s ease;
+        }
+
+        .param-row input[type="range"]::-webkit-slider-thumb:hover {
+            background: #00aaff;
+            box-shadow: 0 0 10px #00aaff;
+        }
+
+        .value-display {
+            width: 60px;
+            text-align: right;
+            margin-left: 10px;
+            font-family: monospace;
+            transition: color 0.3s ease;
+        }
+
+        .param-row:hover .value-display {
+            color: #00aaff;
+        }
+
+        .param-row input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: #00aaff;
+            cursor: pointer;
+            margin-left: auto;
+            transition: all 0.3s ease;
+        }
+
+        .param-row input[type="checkbox"]:hover {
+            filter: brightness(1.2);
+            box-shadow: 0 0 5px #00aaff;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.5);
+                opacity: 0.5;
+            }
+
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        .pulse {
+            position: absolute;
+            border: 2px solid #00aaff;
+            border-radius: 50%;
+            animation: pulse 1s ease-out;
+            box-shadow: 0 0 10px #00aaff;
+        }
+
+        @keyframes glow {
+            0% {
+                filter: brightness(1);
+            }
+
+            50% {
+                filter: brightness(1.2);
+            }
+
+            100% {
+                filter: brightness(1);
+            }
+        }
+
+        #visualizer.block-found {
+            animation: glow 0.5s ease-in-out;
+        }
+
+        .quantum-active {
+            box-shadow: 0 0 20px #00aaff, inset 0 0 10px #00aaff;
+            transition: box-shadow 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="layout-wrapper">
+        <div class="content-wrapper">
+            <div id="header-row">
+                <h1>Enhanced Adaptive Phase-Aware Bitcoin Miner</h1>
+                <div id="controls">
+                    <button id="startButton">Start Mining</button>
+                    <button id="stopButton" disabled>Stop Mining</button>
+                    <button id="resetButton">Reset Parameters</button>
+                </div>
+            </div>
+            <div id="main">
+        <div id="visualizer">
+            <canvas id="canvas"></canvas>
+            <canvas id="glow-overlay"></canvas>
+        </div>
+        <div id="stats-panel">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 10px;">
+                <div class="stat-item">
+                    <span class="stat-label">Current Hash:</span>
+                    <span class="stat-value" id="currentHash">0x00000000000000000000000000000000</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Target Hash:</span>
+                    <span class="stat-value" id="targetHashSummary">0x00000000000000000000000000000000</span>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+                <div class="stat-item">
+                    <span class="stat-label">Total Hashes:</span>
+                    <span class="stat-value" id="totalHashes">0</span>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                <div class="stat-item">
+                    <span class="stat-label">Avg Hash Rate:</span>
+                    <span class="stat-value" id="avgHashRate">0 h/s</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Peak Hash Rate:</span>
+                    <span class="stat-value" id="peakHashRate">0 h/s</span>
+                </div>
+            </div>
+        </div>
+        <div id="worker-status">
+            <table id="worker-table">
+                <thead>
+                    <tr>
+                        <th>Worker ID</th>
+                        <th>Status</th>
+                        <th>Hashes/s</th>
+                        <th>Last Active</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div id="console">
+            <table id="nonce-table">
+                <thead>
+                    <tr>
+                        <th>Difficulty</th>
+                        <th>Nonce</th>
+                        <th>Hash</th>
+                        <th>Time (s)</th>
+                        <th>Hash Rate (h/s)</th>
+                        <th>Phase (π)</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+            </div>
+        </div>
+        <div id="panel">
+        <div class="param-group">
+            <h3>Mining Parameters</h3>
+            <div class="param-row">
+                <label>Block Header:</label>
+                <input type="text" id="blockHeader" placeholder="Enter block header hex">
+            </div>
+            <div class="param-row">
+                <label>Difficulty Bits:</label>
+                <input type="text" id="difficultyBits" value="1d00ffff" pattern="[0-9a-fA-F]{8}">
+                <div class="value-display" id="difficultyBitsValue"></div>
+            </div>
+            <div class="param-row">
+                <label>Chunk Size Base:</label>
+                <input type="number" id="chunkSizeBase" value="8192" min="1024" max="32768" step="1024">
+            </div>
+            <div class="param-row">
+                <label>Auto-increase Difficulty:</label>
+                <input type="checkbox" id="autoIncreaseDifficulty" checked>
+            </div>
+        </div>
+
+        <div class="param-group">
+            <h3>Phase Parameters</h3>
+            <div class="param-row">
+                <label>Skew Factor:</label>
+                <input type="range" id="skewFactor" min="0" max="0.5" step="0.01" value="0.22">
+                <div class="value-display" id="skewFactorValue">0.22</div>
+            </div>
+            <div class="param-row">
+                <label>Resonance Weight:</label>
+                <input type="range" id="resonanceWeight" min="0" max="1" step="0.01" value="0.48">
+                <div class="value-display" id="resonanceWeightValue">0.48</div>
+            </div>
+            <div class="param-row">
+                <label>Prime Weight:</label>
+                <input type="range" id="primeWeight" min="0" max="1" step="0.01" value="0.38">
+                <div class="value-display" id="primeWeightValue">0.38</div>
+            </div>
+            <div class="param-row">
+                <label>Quantum Boost:</label>
+                <input type="range" id="quantumBoost" min="0" max="0.5" step="0.01" value="0.15">
+                <div class="value-display" id="quantumBoostValue">0.15</div>
+            </div>
+        </div>
+
+        <div class="param-group">
+            <h3>Learning Parameters</h3>
+            <div class="param-row">
+                <label>Learning Rate:</label>
+                <input type="range" id="learningRate" min="0" max="0.2" step="0.01" value="0.06">
+                <div class="value-display" id="learningRateValue">0.06</div>
+            </div>
+            <div class="param-row">
+                <label>Pattern Memory:</label>
+                <input type="number" id="maxPatterns" value="200" min="50" max="1000" step="50">
+            </div>
+            <div class="param-row">
+                <label>History Size:</label>
+                <input type="number" id="maxHistory" value="2000" min="500" max="5000" step="500">
+            </div>
+        </div>
+
+        <div class="param-group">
+            <h3>Quantum Thresholds</h3>
+            <div class="param-row">
+                <label>7 zeros:</label>
+                <input type="range" id="threshold7" min="0" max="1" step="0.01" value="0.78">
+                <div class="value-display" id="threshold7Value">0.78</div>
+            </div>
+            <div class="param-row">
+                <label>8 zeros:</label>
+                <input type="range" id="threshold8" min="0" max="1" step="0.01" value="0.85">
+                <div class="value-display" id="threshold8Value">0.85</div>
+            </div>
+            <div class="param-row">
+                <label>9 zeros:</label>
+                <input type="range" id="threshold9" min="0" max="1" step="0.01" value="0.88">
+                <div class="value-display" id="threshold9Value">0.88</div>
+            </div>
+            <div class="param-row">
+                <label>10 zeros:</label>
+                <input type="range" id="threshold10" min="0" max="1" step="0.01" value="0.92">
+                <div class="value-display" id="threshold10Value">0.92</div>
+            </div>
+            <div class="param-row">
+                <label>11 zeros:</label>
+                <input type="range" id="threshold11" min="0" max="1" step="0.01" value="0.95">
+                <div class="value-display" id="threshold11Value">0.95</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Constants
+        const MAX_UINT32 = 0xFFFFFFFF;
+        const PHI = (1 + Math.sqrt(5)) / 2;
+        const TWO_PI = 2 * Math.PI;
+
+        // Pre-calculated values
+        const PRIMES = new Uint32Array([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]);
+
+        // Quantum thresholds for different difficulty levels
+        const QUANTUM_THRESHOLDS = {
+            6: 0.7,
+            7: 0.78,
+            8: 0.85,
+            9: 0.88,
+            10: 0.92,
+            11: 0.95
+        };
+
+        // Quantum-enhanced phase angles
+        const PHASE_ANGLES = new Float64Array([
+            0.0, PHI, 1 / PHI, Math.PI, Math.E,
+            Math.sqrt(2), Math.sqrt(3), Math.sqrt(5),
+            Math.PI / 2, Math.PI / 4,
+            Math.log(2), Math.log(3),
+            Math.PI / 6, Math.PI / 3,
+            Math.sqrt(7), Math.sqrt(11),
+            PHI ** 2, 1 / (PHI ** 2),
+            Math.log(7), Math.log(11)
+        ]);
+
+        // Pre-calculate sin values
+        const SIN_CACHE = new Float64Array(360);
+        for (let i = 0; i < 360; i++) {
+            SIN_CACHE[i] = Math.sin(2 * Math.PI * i / 360);
+        }
+
+        // Fast sine calculation using pre-calculated values
+        function fastSin(angle) {
+            const idx = Math.floor((angle * 180 / Math.PI) % 360);
+            return SIN_CACHE[idx >= 0 ? idx : idx + 360];
+        }
+
+        // Visualization Constants
+        const FREQUENCY_HISTORY = new Array(360).fill(0);
+        const MAX_INTENSITY = 100;
+        const COLORS = [
+            [0, 0, 32, 0.1],      // Darkest blue
+            [0, 0, 64, 0.2],      // Very dark blue
+            [0, 0, 128, 0.3],     // Dark blue
+            [0, 0, 192, 0.5],     // Medium blue
+            [0, 0, 255, 0.6],     // Bright blue
+            [0, 128, 255, 0.7],   // Blue-cyan
+            [0, 192, 255, 0.8],   // Light blue
+            [128, 224, 255, 0.9], // Bright light blue
+            [255, 255, 255, 1.0]  // White hot
+        ];
+
+        // Enhanced Particle System
+        const PARTICLES = [];
+        const MAX_PARTICLES = 100;
+        const PARTICLE_LIFETIME = 120;
+        const TRAIL_LENGTH = 10;
+
+        // Add phase tracking constants
+        const PHASE_BINS = 360; // One bin per degree for phase histogram
+        const PHASE_HISTORY = new Float64Array(PHASE_BINS); // Track successful nonce phases
+        const HARMONIC_RATIOS = [1, PHI, 1 / PHI, Math.PI / 2, Math.PI / 4, Math.sqrt(2), Math.sqrt(3)];
+        const RESONANCE_THRESHOLD = 0.3; // Threshold for highlighting resonant phases
+
+        class Particle {
+            constructor(x, y, angle, speed) {
+                this.x = x;
+                this.y = y;
+                this.angle = angle;
+                this.speed = speed;
+                this.life = PARTICLE_LIFETIME;
+                this.trail = Array(TRAIL_LENGTH).fill().map(() => ({ x, y }));
+                this.hue = Math.random() * 240; // Blue hue variation
+            }
+
+            update() {
+                // Update trail
+                this.trail.pop();
+                this.trail.unshift({ x: this.x, y: this.y });
+
+                // Update position with curved motion
+                this.angle += (Math.random() - 0.5) * 0.1;
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+                this.life--;
+
+                return this.life > 0;
+            }
+
+            draw(ctx) {
+                // Draw trail with gradient
+                for (let i = 0; i < this.trail.length - 1; i++) {
+                    const alpha = (this.life / PARTICLE_LIFETIME) * (1 - i / this.trail.length) * 0.5;
+                    ctx.strokeStyle = `hsla(${this.hue}, 100%, 50%, ${alpha})`;
+                    ctx.lineWidth = 2 * (1 - i / this.trail.length);
+                    ctx.beginPath();
+                    ctx.moveTo(this.trail[i].x, this.trail[i].y);
+                    ctx.lineTo(this.trail[i + 1].x, this.trail[i + 1].y);
+                    ctx.stroke();
+                }
+
+                // Draw particle
+                const alpha = this.life / PARTICLE_LIFETIME;
+                ctx.fillStyle = `hsla(${this.hue}, 100%, 50%, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, TWO_PI);
+                ctx.fill();
+            }
+        }
+
+        // Initialize canvases
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const glowCanvas = document.getElementById('glow-overlay');
+        const glowCtx = glowCanvas.getContext('2d');
+
+        // Set canvas sizes
+        function resizeCanvases() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            glowCanvas.width = rect.width;
+            glowCanvas.height = rect.height;
+        }
+        window.addEventListener('resize', resizeCanvases);
+        resizeCanvases();
+
+        // Visualization functions
+        function mapToColor(intensity) {
+            intensity = Math.min(1, intensity / MAX_INTENSITY);
+            const colorIdx = Math.min(
+                COLORS.length - 1,
+                Math.floor(intensity * COLORS.length)
+            );
+            const [r, g, b, a] = COLORS[colorIdx];
+            return `rgba(${r},${g},${b},${a})`;
+        }
+
+        let gridRotationSpeed = 0;
+        let lastTimestamp = 0;
+
+        function drawFrequencyPattern(timestamp) {
+            const deltaTime = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(centerX, centerY) - 10;
+
+            // Clear both canvases
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            glowCtx.clearRect(0, 0, glowCanvas.width, glowCanvas.height);
+
+            // Draw base grid with phase markers
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.15)';
+            ctx.lineWidth = 1;
+
+            // Draw phase circles with labels
+            for (let r = radius / 4; r <= radius; r += radius / 4) {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, r, 0, TWO_PI);
+                ctx.stroke();
+
+                // Add phase fraction labels (π/2, π, 3π/2, 2π)
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+                ctx.font = '10px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const label = `${(r / radius).toFixed(2)}π`;
+                ctx.fillText(label, centerX + r, centerY);
+            }
+
+            // Draw radial lines with angle labels
+            for (let i = 0; i < 12; i++) {
+                const angle = (i * TWO_PI) / 12;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(
+                    centerX + radius * Math.cos(angle),
+                    centerY + radius * Math.sin(angle)
+                );
+                ctx.stroke();
+
+                // Add degree labels
+                const degrees = (i * 30).toString() + '°';
+                const labelRadius = radius + 15;
+                ctx.fillText(
+                    degrees,
+                    centerX + labelRadius * Math.cos(angle),
+                    centerY + labelRadius * Math.sin(angle)
+                );
+            }
+
+            // Draw frequency distribution
+            ctx.globalCompositeOperation = 'lighter';
+            glowCtx.globalCompositeOperation = 'lighter';
+
+            const maxPhaseCount = Math.max(...PHASE_HISTORY);
+            if (maxPhaseCount > 0) {
+                // Draw phase distribution as a circular histogram
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+
+                for (let i = 0; i < PHASE_BINS; i++) {
+                    const angle = (i * TWO_PI) / PHASE_BINS;
+                    const nextAngle = ((i + 1) * TWO_PI) / PHASE_BINS;
+                    const intensity = PHASE_HISTORY[i] / maxPhaseCount;
+
+                    if (intensity > 0) {
+                        const r = radius * intensity;
+
+                        // Draw sector
+                        ctx.beginPath();
+                        ctx.moveTo(centerX, centerY);
+                        ctx.arc(centerX, centerY, r, angle, nextAngle);
+                        ctx.lineTo(centerX, centerY);
+
+                        // Create gradient
+                        const gradient = ctx.createRadialGradient(
+                            centerX, centerY, 0,
+                            centerX, centerY, r
+                        );
+                        gradient.addColorStop(0, 'rgba(0, 32, 0, 0.1)');
+                        gradient.addColorStop(0.5, `rgba(0, ${Math.floor(255 * intensity)}, 0, 0.3)`);
+                        gradient.addColorStop(1, mapToColor(intensity * MAX_INTENSITY));
+
+                        ctx.fillStyle = gradient;
+                        ctx.fill();
+
+                        // Draw harmonic relationships for strong frequencies
+                        if (intensity > RESONANCE_THRESHOLD) {
+                            HARMONIC_RATIOS.forEach(ratio => {
+                                const harmonicAngle = (angle * ratio) % TWO_PI;
+                                const harmonicBin = Math.floor((harmonicAngle * PHASE_BINS) / TWO_PI);
+                                const harmonicIntensity = PHASE_HISTORY[harmonicBin] / maxPhaseCount;
+
+                                if (harmonicIntensity > RESONANCE_THRESHOLD) {
+                                    // Draw harmonic connection with curved path
+                                    const controlPoint = {
+                                        x: centerX + radius * 0.5 * Math.cos((angle + harmonicAngle) / 2),
+                                        y: centerY + radius * 0.5 * Math.sin((angle + harmonicAngle) / 2)
+                                    };
+
+                                    const x1 = centerX + r * Math.cos(angle);
+                                    const y1 = centerY + r * Math.sin(angle);
+                                    const x2 = centerX + (radius * harmonicIntensity) * Math.cos(harmonicAngle);
+                                    const y2 = centerY + (radius * harmonicIntensity) * Math.sin(harmonicAngle);
+
+                                    ctx.beginPath();
+                                    ctx.moveTo(x1, y1);
+                                    ctx.quadraticCurveTo(controlPoint.x, controlPoint.y, x2, y2);
+
+                                    const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+                                    gradient.addColorStop(0, `rgba(0, 255, 128, ${intensity * 0.5})`);
+                                    gradient.addColorStop(0.5, `rgba(0, 192, 192, ${(intensity + harmonicIntensity) * 0.25})`);
+                                    gradient.addColorStop(1, `rgba(0, 128, 255, ${harmonicIntensity * 0.5})`);
+
+                                    ctx.strokeStyle = gradient;
+                                    ctx.lineWidth = 2;
+                                    ctx.stroke();
+
+                                    // Add resonance indicator
+                                    const resonanceStrength = Math.min(intensity * harmonicIntensity, 1);
+                                    ctx.beginPath();
+                                    ctx.arc(controlPoint.x, controlPoint.y, 3, 0, TWO_PI);
+                                    ctx.fillStyle = `rgba(255, 255, 255, ${resonanceStrength})`;
+                                    ctx.fill();
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Draw particles with trails following phase angles
+            ctx.save();
+            for (let i = PARTICLES.length - 1; i >= 0; i--) {
+                if (!PARTICLES[i].update()) {
+                    PARTICLES.splice(i, 1);
+                } else {
+                    PARTICLES[i].draw(ctx);
+                }
+            }
+            ctx.restore();
+
+            // Request next frame
+            requestAnimationFrame(drawFrequencyPattern);
+        }
+
+        // Update phase histogram when a successful nonce is found
+        function updatePhaseHistory(phase) {
+            const binIndex = Math.floor((phase * PHASE_BINS) / TWO_PI) % PHASE_BINS;
+            PHASE_HISTORY[binIndex] += 1;
+
+            // Slowly decay all bins to highlight recent activity
+            for (let i = 0; i < PHASE_BINS; i++) {
+                PHASE_HISTORY[i] *= 0.999;
+            }
+        }
+
+        function updateFrequencyPattern(angle, intensity) {
+            const idx = Math.floor((angle * 180 / Math.PI) % 360);
+            FREQUENCY_HISTORY[idx] = Math.max(FREQUENCY_HISTORY[idx], intensity);
+        }
+
+        function createPulseEffect() {
+            const visualizer = document.getElementById('visualizer');
+            visualizer.classList.add('block-found');
+            setTimeout(() => visualizer.classList.remove('block-found'), 500);
+
+            const pulse = document.createElement('div');
+            pulse.className = 'pulse';
+            pulse.style.width = '100px';
+            pulse.style.height = '100px';
+            pulse.style.left = `${canvas.width / 2 - 50}px`;
+            pulse.style.top = `${canvas.height / 2 - 50}px`;
+            visualizer.appendChild(pulse);
+            pulse.addEventListener('animationend', () => pulse.remove());
+        }
+
+        // Initialize UI elements
+        let mining = false;
+        let totalHashes = 0;
+        let totalTime = 0;
+        let peakHashRate = 0;
+        const consoleElem = document.getElementById('console');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const resetButton = document.getElementById('resetButton');
+        const blockHeaderInput = document.getElementById('blockHeader');
+        const targetHashDisplay = document.getElementById('targetHashSummary');
+        const difficultyBitsInput = document.getElementById('difficultyBits');
+
+        // Convert difficulty bits to target hash
+        function calculateTargetHash(bits) {
+            try {
+                const exponent = bits >> 24;
+                let mantissa = bits & 0x00ffffff;
+                
+                // Handle sign bit and negative zero
+                if (mantissa & 0x800000) {
+                    throw new Error('Target cannot be negative');
+                }
+                if (mantissa === 0 && exponent !== 0) {
+                    throw new Error('Target cannot be negative zero');
+                }
+                
+                // Normalize mantissa to have no leading zeros
+                const leadingZeros = Math.clz32(mantissa) - 8;
+                if (leadingZeros > 0) {
+                    mantissa <<= leadingZeros;
+                }
+                
+                // Calculate target value using compact format: target = mantissa * 256^(exponent-3)
+                let target = BigInt(mantissa);
+                const shift = (exponent - 3) * 8;
+                
+                if (shift < 0) {
+                    target >>= BigInt(-shift);
+                } else {
+                    target <<= BigInt(shift);
+                }
+                
+                // Ensure target is within valid range
+                const maxTarget = (BigInt(1) << BigInt(256)) - BigInt(1);
+                if (target > maxTarget) {
+                    target = maxTarget;
+                }
+                
+                // Convert to hex string and ensure it's 64 characters (256 bits)
+                let targetHex = target.toString(16).padStart(64, '0');
+                
+                // Ensure the target hash has the correct number of leading zeros
+                const expectedZeros = 8 * (0x1d - exponent);
+                const actualZeros = targetHex.match(/^0+/)?.[0]?.length || 0;
+                
+                if (actualZeros < expectedZeros) {
+                    // Adjust target to have correct number of leading zeros
+                    targetHex = '0'.repeat(expectedZeros) + targetHex.slice(expectedZeros);
+                }
+                
+                // Convert to little-endian format for display
+                const targetBytes = [];
+                for (let i = 0; i < targetHex.length; i += 2) {
+                    targetBytes.unshift(targetHex.substr(i, 2));
+                }
+                const littleEndianHex = targetBytes.join('');
+                
+                // Validate the target hash
+                if (!/^[0-9a-f]{64}$/.test(littleEndianHex)) {
+                    throw new Error('Invalid target hash generated');
+                }
+                
+                return littleEndianHex;
+            } catch (error) {
+                console.error('Error calculating target hash:', error);
+                // Return genesis block target as fallback
+                return '00000000ffff0000000000000000000000000000000000000000000000000000';
+            }
+        }
+
+        // Update target hash display when difficulty changes
+        function updateTarget() {
+            const bits = parseInt(difficultyBitsInput.value, 16);
+            const targetHash = calculateTargetHash(bits);
+            const targetHashDisplay = document.getElementById('targetHashSummary');
+            if (targetHashDisplay) targetHashDisplay.innerText = '0x' + targetHash;
+        }
+
+        // Initialize target hash display
+        const initialBits = parseInt(difficultyBitsInput.value, 16);
+        const initialTargetHash = calculateTargetHash(initialBits);
+        if (targetHashDisplay) targetHashDisplay.innerText = '0x' + initialTargetHash;
+        
+        // Add listener for future changes
+        difficultyBitsInput.addEventListener('input', updateTarget);
+
+        // Generate a random sample block hash
+        function generateSampleBlockHash() {
+            const bytes = new Uint8Array(32);
+            crypto.getRandomValues(bytes);
+            return Array.from(bytes)
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+        }
+
+        // Initialize parameter controls
+        const controls = {
+            difficultyBits: document.getElementById('difficultyBits'),
+            chunkSizeBase: document.getElementById('chunkSizeBase'),
+            autoIncreaseDifficulty: document.getElementById('autoIncreaseDifficulty'),
+            skewFactor: document.getElementById('skewFactor'),
+            resonanceWeight: document.getElementById('resonanceWeight'),
+            primeWeight: document.getElementById('primeWeight'),
+            quantumBoost: document.getElementById('quantumBoost'),
+            learningRate: document.getElementById('learningRate'),
+            maxPatterns: document.getElementById('maxPatterns'),
+            maxHistory: document.getElementById('maxHistory'),
+            blockHeader: document.getElementById('blockHeader')
+        };
+
+        // Prepopulate block header with sample hash
+        controls.blockHeader.value = generateSampleBlockHash();
+
+        // Initialize quantum threshold controls
+        const thresholdControls = {};
+        for (let i = 7; i <= 11; i++) {
+            thresholdControls[i] = document.getElementById(`threshold${i}`);
+        }
+
+        // Update value displays for range inputs
+        function updateValueDisplay(input) {
+            const display = document.getElementById(`${input.id}Value`);
+            if (display) {
+                display.textContent = input.value;
+            }
+        }
+
+        // Add input listeners
+        Object.values(controls).forEach(control => {
+            if (control.type === 'range') {
+                control.addEventListener('input', () => updateValueDisplay(control));
+            }
+        });
+        Object.values(thresholdControls).forEach(control => {
+            control.addEventListener('input', () => updateValueDisplay(control));
+        });
+
+        // Reset parameters to defaults
+        function resetParameters() {
+            controls.skewFactor.value = '0.22';
+            controls.resonanceWeight.value = '0.48';
+            controls.primeWeight.value = '0.38';
+            controls.quantumBoost.value = '0.15';
+            controls.learningRate.value = '0.06';
+            controls.maxPatterns.value = '200';
+            controls.maxHistory.value = '2000';
+            controls.difficultyBits.value = '1d00ffff';
+            controls.chunkSizeBase.value = '8192';
+
+            thresholdControls[7].value = '0.78';
+            thresholdControls[8].value = '0.85';
+            thresholdControls[9].value = '0.88';
+            thresholdControls[10].value = '0.92';
+            thresholdControls[11].value = '0.95';
+
+            // Update all value displays
+            Object.values(controls).forEach(control => {
+                if (control.type === 'range') updateValueDisplay(control);
+            });
+            Object.values(thresholdControls).forEach(control => {
+                updateValueDisplay(control);
+            });
+
+            // Clear visualization
+            FREQUENCY_HISTORY.fill(0);
+            PARTICLES.length = 0;
+            gridRotationSpeed = 0;
+        }
+
+        resetButton.onclick = resetParameters;
+
+        function initializeConsole() {
+            const consoleElem = document.getElementById('console');
+            consoleElem.innerHTML = `
+                <table id="nonce-table">
+                    <thead>
+                        <tr>
+                            <th>Difficulty</th>
+                            <th>Nonce</th>
+                            <th>Hash</th>
+                            <th>Time (s)</th>
+                            <th>Hash Rate (h/s)</th>
+                            <th>Phase (π)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            `;
+        }
+
+        function updateStats() {
+            document.getElementById('totalHashes').textContent = totalHashes.toLocaleString();
+            const avgRate = totalHashes / (totalTime || 1);
+            document.getElementById('avgHashRate').textContent = `${avgRate.toFixed(2)} h/s`;
+            document.getElementById('peakHashRate').textContent = `${peakHashRate.toFixed(2)} h/s`;
+        }
+
+        function log(message, type = 'stats') {
+            if (type === 'nonce') {
+                const tableBody = document.querySelector('#nonce-table tbody');
+                tableBody.insertAdjacentHTML('beforeend', message);
+                consoleElem.scrollTop = consoleElem.scrollHeight;
+            }
+        }
+
+        // SHA-256 implementation
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            return new Uint8Array(hashBuffer);
+        }
+
+        async function doubleSha256(message) {
+            const hash1 = await sha256(message);
+            return await sha256(new TextDecoder().decode(hash1));
+        }
+
+        class AdaptivePhaseOptimizer {
+            constructor() {
+                this.successPatterns = [];
+                this.performanceHistory = [];
+                this.maxPatterns = parseInt(controls.maxPatterns.value);
+                this.maxHistory = parseInt(controls.maxHistory.value);
+
+                this.phaseParams = {
+                    skewFactor: parseFloat(controls.skewFactor.value),
+                    resonanceWeight: parseFloat(controls.resonanceWeight.value),
+                    primeWeight: parseFloat(controls.primeWeight.value),
+                    quantumBoost: parseFloat(controls.quantumBoost.value)
+                };
+
+                this.learningRate = parseFloat(controls.learningRate.value);
+                this.patternWeights = {};
+                this.patternKeys = ['leadingZeros', 'trailingZeros', 'oneCount', 'longestRun', 'transitions'];
+                this.weightArray = new Float64Array(this.patternKeys.length);
+            }
+
+            updateParameters(miningTime, success) {
+                this.performanceHistory.push([miningTime, success]);
+                if (this.performanceHistory.length > this.maxHistory) {
+                    this.performanceHistory.shift();
+                }
+
+                if (this.performanceHistory.length >= 10) {
+                    const recentHistory = this.performanceHistory.slice(-10);
+                    const recentSuccessRate = recentHistory.filter(([, s]) => s).length / recentHistory.length;
+                    const avgTime = recentHistory.reduce((sum, [t]) => sum + t, 0) / recentHistory.length;
+
+                    let oldAvgTime = avgTime;
+                    if (this.performanceHistory.length >= 20) {
+                        const olderHistory = this.performanceHistory.slice(-20, -10);
+                        oldAvgTime = olderHistory.reduce((sum, [t]) => sum + t, 0) / olderHistory.length;
+                    }
+
+                    if (recentSuccessRate < 0.1) {
+                        this.phaseParams.skewFactor = Math.min(0.25,
+                            this.phaseParams.skewFactor * (1 + this.learningRate));
+                        this.phaseParams.resonanceWeight = Math.max(0.15,
+                            this.phaseParams.resonanceWeight * (1 - this.learningRate * 0.8));
+                    } else if (avgTime > oldAvgTime) {
+                        this.phaseParams.primeWeight = Math.min(0.6,
+                            this.phaseParams.primeWeight * (1 + this.learningRate * 0.7));
+                        this.phaseParams.resonanceWeight = Math.min(0.85,
+                            this.phaseParams.resonanceWeight * (1 + this.learningRate * 0.9));
+                    } else {
+                        this.learningRate = Math.max(0.02, this.learningRate * 0.98);
+                    }
+
+                    // Update UI with current values
+                    controls.skewFactor.value = this.phaseParams.skewFactor.toFixed(2);
+                    controls.resonanceWeight.value = this.phaseParams.resonanceWeight.toFixed(2);
+                    controls.primeWeight.value = this.phaseParams.primeWeight.toFixed(2);
+                    controls.learningRate.value = this.learningRate.toFixed(2);
+
+                    Object.values(controls).forEach(control => {
+                        if (control.type === 'range') updateValueDisplay(control);
+                    });
+                }
+            }
+
+            analyzeNoncePattern(nonce) {
+                const binary = nonce.toString(2).padStart(32, '0');
+
+                const leadingZeros = binary.length - binary.replace(/^0+/, '').length;
+                const trailingZeros = binary.length - binary.replace(/0+$/, '').length;
+                const oneCount = (binary.match(/1/g) || []).length;
+
+                let currentRun = 0;
+                let maxRun = 0;
+                let transitions = 0;
+                let prevBit = '0';
+
+                for (const bit of binary) {
+                    if (bit === '0') {
+                        currentRun++;
+                        maxRun = Math.max(maxRun, currentRun);
+                    } else {
+                        currentRun = 0;
+                    }
+
+                    if (bit !== prevBit) {
+                        transitions++;
+                    }
+                    prevBit = bit;
+                }
+
+                return [leadingZeros, trailingZeros, oneCount, maxRun, transitions];
+            }
+
+            updatePatternWeights(nonce) {
+                const pattern = this.analyzeNoncePattern(nonce);
+                this.successPatterns.push(pattern);
+                if (this.successPatterns.length > this.maxPatterns) {
+                    this.successPatterns.shift();
+                }
+
+                if (this.successPatterns.length >= 2) {
+                    const patterns = this.successPatterns;
+                    for (let i = 0; i < this.patternKeys.length; i++) {
+                        const recentPatterns = patterns.slice(-10);
+                        this.weightArray[i] = (
+                            recentPatterns.reduce((sum, p) => sum + p[i], 0) / recentPatterns.length * 0.7 +
+                            patterns.reduce((sum, p) => sum + p[i], 0) / patterns.length * 0.3
+                        );
+                    }
+
+                    this.patternWeights = Object.fromEntries(
+                        this.patternKeys.map((key, i) => [key, this.weightArray[i]])
+                    );
+                }
+            }
+
+            calculateAdaptiveSkew(baseNonce, difficulty, primeFactor) {
+                if (difficulty < 6 || !this.patternWeights) {
+                    return [baseNonce, 0];
+                }
+
+                // Clear visualization on new block
+                if (baseNonce === 0) {
+                    FREQUENCY_HISTORY.fill(0);
+                    drawFrequencyPattern(performance.now());
+                }
+
+                baseNonce &= MAX_UINT32;
+                const primeAdjustedNonce = (baseNonce * primeFactor) & MAX_UINT32;
+
+                const basePhase = TWO_PI * ((difficulty - 5) * PHI) / (difficulty + 3);
+                let quantumFactor = 1.0;
+
+                if (difficulty >= 7) {
+                    const quantumBoost = Math.min(1.8, 1.0 + (difficulty - 6) * this.phaseParams.quantumBoost);
+                    const threshold = parseFloat(thresholdControls[difficulty]?.value || 0.8);
+                    quantumFactor = quantumBoost * (1.0 + threshold);
+                }
+
+                const phaseAngle = basePhase * quantumFactor;
+
+                // Update visualization with phase angle and quantum factor
+                const intensity = Math.abs(quantumFactor * 100);
+
+                // Get canvas dimensions for particles
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const radius = Math.min(centerX, centerY) - 10;
+
+                // Add particles at high intensity points
+                if (intensity > 50 && Math.random() < 0.3 && PARTICLES.length < MAX_PARTICLES) {
+                    const particleX = centerX + (radius * intensity / MAX_INTENSITY) * Math.cos(phaseAngle);
+                    const particleY = centerY + (radius * intensity / MAX_INTENSITY) * Math.sin(phaseAngle);
+                    PARTICLES.push(new Particle(
+                        particleX,
+                        particleY,
+                        phaseAngle + Math.PI * (Math.random() - 0.5),
+                        1 + Math.random()
+                    ));
+                }
+
+                updateFrequencyPattern(phaseAngle, intensity);
+
+                let weightFactor = 0.5;
+                if (this.patternWeights) {
+                    const pattern = this.analyzeNoncePattern(primeAdjustedNonce);
+                    const weightFactors = pattern.map((val, i) =>
+                        Math.abs(val - this.weightArray[i]) / Math.max(this.weightArray[i], 1)
+                    );
+                    weightFactor = Math.min(1.0, weightFactors.reduce((sum, w, i) =>
+                        sum + w * (i < 2 ? 1.2 : 1.0)
+                    ) / weightFactors.length);
+                }
+
+                let baseFactor = Math.min(2.0, 1 + (this.phaseParams.skewFactor * weightFactor));
+                let phaseFactor = baseFactor;
+
+                if (difficulty >= 7) {
+                    const quantumAmp = 1.0 + (difficulty - 6) * 0.12;
+                    const threshold = parseFloat(thresholdControls[difficulty]?.value || 0.8);
+                    const resonanceBoost = threshold * 0.5;
+                    phaseFactor = baseFactor * quantumAmp * (1.0 + resonanceBoost);
+                }
+
+                const phaseIdx = Math.floor((difficulty - 6) % PHASE_ANGLES.length);
+                const resonance = (
+                    fastSin(phaseAngle) * 0.6 +
+                    fastSin(phaseAngle * PHASE_ANGLES[phaseIdx]) * 0.4
+                ) * this.phaseParams.resonanceWeight;
+
+                const resonanceComponent = (primeAdjustedNonce * resonance) & MAX_UINT32;
+
+                let primeWeight = this.phaseParams.primeWeight;
+                if (difficulty >= 7) {
+                    primeWeight *= (1.0 + (difficulty - 6) * 0.08);
+                }
+
+                const primeComponent = (
+                    ((primeAdjustedNonce & 0x7F) * Math.floor(primeWeight * 120)) +
+                    ((primeAdjustedNonce & 0xFF00) >> 8) * Math.floor(primeWeight * 60) +
+                    ((primeAdjustedNonce & 0xFF0000) >> 16) * Math.floor(primeWeight * 30)
+                ) & MAX_UINT32;
+
+                let finalNonce = primeAdjustedNonce;
+                finalNonce = (finalNonce + resonanceComponent) & MAX_UINT32;
+                finalNonce = (finalNonce + primeComponent) & MAX_UINT32;
+
+                return [finalNonce, phaseAngle];
+            }
+
+
+        }
+
+
+        // Web Worker pool with better memory management
+        const WORKER_COUNT = navigator.hardwareConcurrency || 4;
+        const workerPool = new Map();
+        let activeWorkers = 0;
+        const workerPromises = new Map();
+        const workerStats = new Map();
+
+        function updateWorkerTable() {
+            const tbody = document.querySelector('#worker-table tbody');
+            tbody.innerHTML = '';
+            
+            Array.from(workerPool.keys()).forEach((worker, index) => {
+                const stats = workerStats.get(worker) || {
+                    hashRate: 0,
+                    lastActive: 'Never',
+                    status: 'Available'
+                };
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>Worker ${index + 1}</td>
+                    <td class="worker-status-${stats.status.toLowerCase()}">${stats.status}</td>
+                    <td>${stats.hashRate.toFixed(2)}</td>
+                    <td>${stats.lastActive}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateWorkerStats(worker, status, hashRate = null) {
+            const stats = workerStats.get(worker) || {
+                hashRate: 0,
+                lastActive: 'Never',
+                status: 'Available'
+            };
+            
+            stats.status = status;
+            if (hashRate !== null) {
+                stats.hashRate = hashRate;
+            }
+            stats.lastActive = new Date().toLocaleTimeString();
+            
+            workerStats.set(worker, stats);
+            updateWorkerTable();
+        }
+
+        function createWorker() {
+            const workerCode = `
+                const MAX_UINT32 = 0xFFFFFFFF;
+                const PHI = (1 + Math.sqrt(5)) / 2;
+                const TWO_PI = 2 * Math.PI;
+
+                function bitsToTarget(bits) {
+                    const exponent = bits >> 24;
+                    const mantissa = bits & 0x00ffffff;
+                    
+                    // Handle sign bit and negative zero
+                    if (mantissa & 0x800000) {
+                        throw new Error('Target cannot be negative');
+                    }
+                    if (mantissa === 0 && exponent !== 0) {
+                        throw new Error('Target cannot be negative zero');
+                    }
+                    
+                    // Convert to BigInt for proper 256-bit arithmetic
+                    let target = BigInt(mantissa);
+                    
+                    // Count leading zeros in mantissa (excluding sign bit)
+                    const leadingZeros = Math.clz32((mantissa << 8) >>> 8) - 8;
+                    
+                    // Adjust mantissa for leading zeros
+                    if (leadingZeros > 0) {
+                        target = target << BigInt(leadingZeros);
+                    }
+                    
+                    // Bitcoin's compact format: target = mantissa * 256^(exponent-3)
+                    const adjustedExponent = exponent - 3;
+                    if (adjustedExponent < 0) {
+                        target = target >> BigInt(-adjustedExponent * 8);
+                    } else {
+                        // Check for overflow before shifting
+                        if (adjustedExponent > 32) {
+                            throw new Error('Target is too large');
+                        }
+                        target = target << BigInt(adjustedExponent * 8);
+                    }
+                    
+                    // Ensure target is within valid range
+                    if (target > (BigInt(1) << BigInt(256)) - BigInt(1)) {
+                        throw new Error('Target is too large');
+                    }
+                    
+                    return target;
+                }
+
+                function hexToBigInt(hex) {
+                    const paddedHex = hex.padStart(64, '0');
+                    return BigInt('0x' + paddedHex);
+                }
+                
+                self.addEventListener('message', async (e) => {
+                    try {
+                        const {header, startNonce, chunkSize, targetZeros, primes, bits} = e.data;
+                        const target = bitsToTarget(bits);
+                        const headerArray = new Uint8Array(header);
+                        
+                        for(let i = 0; i < chunkSize; i++) {
+                            const baseNonce = (startNonce + i) >>> 0;
+                            const primeFactor = primes[i % primes.length];
+                            
+                            // Enhanced nonce calculation with phase patterns
+                            let nonce = (baseNonce * primeFactor) & MAX_UINT32;
+                            let phase = 0;
+                            
+                            if(targetZeros >= 6) {
+                                // Calculate base phase using golden ratio and Fibonacci sequence
+                                const fibMod = (nonce & 0xFF) % 13; // Use last byte for Fibonacci modulo
+                                const fibPhase = TWO_PI * (fibMod * PHI - Math.floor(fibMod * PHI));
+                                
+                                // Combine with difficulty-based phase
+                                phase = TWO_PI * ((targetZeros - 5) * PHI) / (targetZeros + 3);
+                                phase = (phase + fibPhase) % TWO_PI;
+                                
+                                // Calculate resonance using multiple harmonics
+                                const resonance = (
+                                    Math.sin(phase) * 0.4 +                    // Base frequency
+                                    Math.sin(phase * PHI) * 0.3 +             // Golden ratio harmonic
+                                    Math.sin(phase * (1/PHI)) * 0.2 +         // Inverse golden ratio
+                                    Math.sin(phase * Math.sqrt(2)) * 0.1      // Root 2 harmonic
+                                );
+                                
+                                // Apply resonance with bit mixing
+                                const resonanceInt = Math.floor(resonance * 1000000) & 0xFFFFFF;
+                                nonce = (nonce + ((nonce ^ resonanceInt) & MAX_UINT32)) & MAX_UINT32;
+                            }
+                            
+                            // Pack data and hash
+                            const testData = new Uint8Array(headerArray.length + 4);
+                            testData.set(headerArray);
+                            testData[headerArray.length] = nonce & 0xFF;
+                            testData[headerArray.length + 1] = (nonce >> 8) & 0xFF;
+                            testData[headerArray.length + 2] = (nonce >> 16) & 0xFF;
+                            testData[headerArray.length + 3] = (nonce >> 24) & 0xFF;
+                            
+                            const hash1 = await crypto.subtle.digest('SHA-256', testData);
+                            const finalHash = await crypto.subtle.digest('SHA-256', hash1);
+                            const hashHex = Array.from(new Uint8Array(finalHash))
+                                .map(b => b.toString(16).padStart(2, '0'))
+                                .join('');
+                                
+                            // Calculate coherence based on hash patterns and phase alignment
+                            const coherence = hashHex.split('').reduce((acc, char, i, arr) => {
+                                const value = parseInt(char, 16);
+                                const prevValue = i > 0 ? parseInt(arr[i-1], 16) : null;
+                                const nextValue = i < arr.length - 1 ? parseInt(arr[i+1], 16) : null;
+                                
+                                return acc + 
+                                    // Leading zeros weight (higher for earlier positions)
+                                    (value === 0 ? 0.2 * (1 - i/32) : 0) +
+                                    // Pattern matching weight (sequences and symmetry)
+                                    (prevValue !== null && value === prevValue ? 0.1 : 0) +
+                                    (nextValue !== null && value === nextValue ? 0.1 : 0) +
+                                    // Phase alignment weight (higher for lower values)
+                                    (value < 8 ? (8 - value) * 0.025 : 0) +
+                                    // Resonance patterns (golden ratio relationships)
+                                    (prevValue !== null && Math.abs(value - prevValue) === 1 ? 0.05 : 0) +
+                                    (i > 1 && value === parseInt(arr[i-2], 16) ? 0.05 : 0);
+                            }, 0);
+
+                            // Update visualization
+                            self.postMessage({ 
+                                currentHash: hashHex, 
+                                type: 'update',
+                                phase,
+                                coherence: Math.min(1, coherence),
+                                isMatch: false
+                            });
+                            
+                            // Check against target
+                            const hashNum = hexToBigInt(hashHex);
+                            if(hashNum < target) {
+                                self.postMessage({ 
+                                    currentHash: hashHex, 
+                                    type: 'update',
+                                    phase,
+                                    coherence: Math.min(1, coherence + 0.3),
+                                    isMatch: true
+                                });
+                                postMessage({
+                                    nonce,
+                                    hashHex,
+                                    phase: targetZeros >= 6 ? phase : 0,
+                                    hashes: i + 1
+                                });
+                                return;
+                            }
+                        }
+                        postMessage({ hashes: chunkSize });
+                    } catch (error) {
+                        console.error('Worker error:', error);
+                        postMessage({error: error.message});
+                    }
+                });
+            `;
+
+            const blob = new Blob([workerCode], { type: 'application/javascript' });
+            const worker = new Worker(URL.createObjectURL(blob));
+
+            worker.onerror = (e) => {
+                console.error('Worker error:', e);
+                worker.terminate();
+                workerPool.delete(worker);
+            };
+
+            workerPool.set(worker, true);
+            return worker;
+        }
+
+        async function mineChunk(header, startNonce, chunkSize, targetZeros, optimizer) {
+            const chunkStartTime = performance.now();
+            
+            // Create workers until we reach WORKER_COUNT
+            while (activeWorkers < WORKER_COUNT) {
+                createWorker();
+                activeWorkers++;
+            }
+
+            // Find all available workers
+            const availableWorkers = Array.from(workerPool.entries())
+                .filter(([_, isAvailable]) => isAvailable)
+                .map(([worker]) => worker);
+
+            if (availableWorkers.length === 0) {
+                return [null, null, 0, 0, false];
+            }
+
+            // Distribute work among available workers
+            const workerChunkSize = Math.floor(chunkSize / availableWorkers.length);
+            const promises = availableWorkers.map((worker, index) => {
+                const workerStartNonce = startNonce + (index * workerChunkSize);
+                const isLastWorker = index === availableWorkers.length - 1;
+                const thisWorkerChunkSize = isLastWorker 
+                    ? chunkSize - (workerChunkSize * index) // Last worker gets remaining work
+                    : workerChunkSize;
+
+                workerPool.set(worker, false);
+                updateWorkerStats(worker, 'Busy');
+
+                return new Promise((resolve) => {
+                    worker.onmessage = (e) => {
+                        if (e.data.type === 'update') {
+                            document.getElementById('currentHash').innerText = '0x' + e.data.currentHash;
+                            
+                            // Only clear on new block start
+                            if (startNonce === 0) {
+                                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                glowCtx.clearRect(0, 0, glowCanvas.width, glowCanvas.height);
+                            }
+                            
+                            const centerX = canvas.width / 2;
+                            const centerY = canvas.height / 2;
+                            const radius = Math.min(centerX, centerY) - 20;
+                            
+                            const angle = e.data.phase;
+                            const distance = radius * e.data.coherence;
+                            const x = centerX + distance * Math.cos(angle);
+                            const y = centerY + distance * Math.sin(angle);
+                            
+                            // Draw grid
+                            ctx.strokeStyle = 'rgba(0, 170, 255, 0.1)';
+                            ctx.lineWidth = 1;
+                            
+                            // Draw concentric circles with labels
+                            const circles = [0.25, 0.5, 0.75, 1.0];
+                            circles.forEach(scale => {
+                                const r = radius * scale;
+                                ctx.beginPath();
+                                ctx.arc(centerX, centerY, r, 0, TWO_PI);
+                                ctx.stroke();
+                                
+                                ctx.fillStyle = 'rgba(0, 170, 255, 0.4)';
+                                ctx.font = '10px monospace';
+                                ctx.textAlign = 'left';
+                                ctx.fillText(`${(scale * 100).toFixed(0)}%`, centerX + r + 5, centerY);
+                            });
+                            
+                            // Draw radial lines and labels
+                            for (let i = 0; i < 12; i++) {
+                                const angle = (i * Math.PI) / 6;
+                                ctx.beginPath();
+                                ctx.moveTo(centerX, centerY);
+                                ctx.lineTo(
+                                    centerX + radius * Math.cos(angle),
+                                    centerY + radius * Math.sin(angle)
+                                );
+                                ctx.stroke();
+                                
+                                const labelRadius = radius + 15;
+                                const labelX = centerX + labelRadius * Math.cos(angle);
+                                const labelY = centerY + labelRadius * Math.sin(angle);
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillStyle = 'rgba(0, 170, 255, 0.4)';
+                                ctx.fillText(`${i * 30}°`, labelX, labelY);
+                            }
+                            
+                            // Draw point with trail effect
+                            const pointSize = e.data.isMatch ? 4 : 1;
+                            const glowSize = e.data.isMatch ? 8 : 2;
+                            const alpha = e.data.isMatch ? 1 : 0.3;
+                            
+                            // Color based on coherence and match status
+                            const coherence = e.data.coherence;
+                            const hue = e.data.isMatch ? 120 : 200;
+                            const saturation = 100;
+                            const lightness = Math.min(80, 40 + coherence * 40);
+                            
+                            // Draw trail
+                            const trailLength = 8;
+                            const trailSpacing = 4;
+                            for (let i = 0; i < trailLength; i++) {
+                                const trailAngle = angle - (i * trailSpacing * Math.PI / 180);
+                                const trailX = centerX + distance * Math.cos(trailAngle);
+                                const trailY = centerY + distance * Math.sin(trailAngle);
+                                const trailAlpha = alpha * (1 - i / trailLength);
+                                
+                                const trailColor = `hsla(${hue}, ${saturation}%, ${lightness}%, ${trailAlpha})`;
+                                
+                                ctx.beginPath();
+                                ctx.arc(trailX, trailY, Math.max(1, pointSize - i/2), 0, TWO_PI);
+                                ctx.fillStyle = trailColor;
+                                ctx.fill();
+                                
+                                glowCtx.beginPath();
+                                glowCtx.arc(trailX, trailY, Math.max(2, glowSize - i), 0, TWO_PI);
+                                glowCtx.fillStyle = trailColor.replace(')', ', 0.3)');
+                                glowCtx.fill();
+                            }
+                            
+                            // Draw main point
+                            const color = `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
+                            ctx.beginPath();
+                            ctx.arc(x, y, pointSize, 0, TWO_PI);
+                            ctx.fillStyle = color;
+                            ctx.fill();
+                            
+                            glowCtx.beginPath();
+                            glowCtx.arc(x, y, glowSize, 0, TWO_PI);
+                            glowCtx.fillStyle = color.replace(')', ', 0.5)');
+                            glowCtx.fill();
+                            
+                            return;
+                        }
+                        
+                        if (e.data.error) {
+                            console.error('Worker error:', e.data.error);
+                            resolve([null, null, (performance.now() - chunkStartTime) / 1000, 0, false]);
+                        } else if (e.data.nonce) {
+                            const { nonce, hashHex, phase, hashes } = e.data;
+                            totalHashes += hashes;
+                            const miningTime = (performance.now() - chunkStartTime) / 1000;
+                            totalTime += miningTime;
+                            optimizer.updatePatternWeights(nonce);
+                            if (targetZeros >= 6) {
+                                updatePhaseHistory(phase);
+                            }
+                            createPulseEffect();
+                            resolve([nonce, hashHex, miningTime, phase, true]);
+                        } else {
+                            const miningTime = (performance.now() - chunkStartTime) / 1000;
+                            totalTime += miningTime;
+                            totalHashes += e.data.hashes;
+                            resolve([null, null, miningTime, 0, false]);
+                        }
+
+                        workerPool.set(worker, true);
+                        const hashRate = thisWorkerChunkSize / ((performance.now() - chunkStartTime) / 1000);
+                        updateWorkerStats(worker, 'Available', hashRate);
+                    };
+
+                    worker.onerror = (e) => {
+                        console.error('Worker error:', e);
+                        resolve([null, null, (performance.now() - chunkStartTime) / 1000, 0, false]);
+                    };
+
+                    worker.postMessage({
+                        header,
+                        startNonce: workerStartNonce,
+                        chunkSize: thisWorkerChunkSize,
+                        targetZeros,
+                        primes: PRIMES,
+                        bits: parseInt(controls.difficultyBits.value, 16)
+                    });
+                });
+            });
+
+            // Wait for first successful result or all failures
+            const results = await Promise.race([
+                // Wait for first success
+                Promise.any(promises).catch(() => null),
+                // Or wait for all to complete
+                Promise.all(promises).then(() => null)
+            ]);
+
+            return results || [null, null, (performance.now() - chunkStartTime) / 1000, 0, false];
+        }
+
+        async function mineBlock(header, targetZeros) {
+            const startTime = performance.now();
+            const optimizer = new AdaptivePhaseOptimizer();
+            const visualizer = document.getElementById('visualizer');
+
+            if (targetZeros >= 6) {
+                visualizer.classList.add('quantum-active');
+            } else {
+                visualizer.classList.remove('quantum-active');
+            }
+
+            const baseChunkSize = parseInt(controls.chunkSizeBase.value);
+            const chunkSize = Math.max(4096, Math.floor(baseChunkSize / (1 + 0.15 * Math.max(0, targetZeros - 6))));
+
+            let chunkSpacing;
+            if (targetZeros >= 6) {
+                const quantumFactor = PHI + (targetZeros - 5) * 0.4;
+                const entropyFactor = 1 + (targetZeros - 6) * 0.35;
+                chunkSpacing = Math.floor(chunkSize * quantumFactor * entropyFactor) % Math.floor(MAX_UINT32 / chunkSize);
+            } else {
+                chunkSpacing = chunkSize;
+            }
+
+            let nonce = 0;
+            while (mining && nonce <= MAX_UINT32) {
+                const [foundNonce, hashHex, chunkTime, phase, success] =
+                    await mineChunk(header, nonce, chunkSize, targetZeros, optimizer);
+
+                optimizer.updateParameters(chunkTime, success);
+
+                if (foundNonce !== null) {
+                    const miningTime = (performance.now() - startTime) / 1000;
+                    return [foundNonce, hashHex, miningTime, phase];
+                }
+
+                nonce = (nonce + chunkSpacing) >>> 0;
+            }
+
+            return [null, null, (performance.now() - startTime) / 1000, 0];
+        }
+
+        async function main() {
+            // Convert difficulty bits to target zeros using Bitcoin's format
+            const bits = parseInt(controls.difficultyBits.value, 16);
+            const exponent = bits >> 24;
+            const mantissa = bits & 0x00ffffff;
+            
+            // Handle invalid difficulty bits
+            if (mantissa & 0x800000) {
+                throw new Error('Target cannot be negative');
+            }
+            if (mantissa === 0 && exponent !== 0) {
+                throw new Error('Target cannot be negative zero');
+            }
+            
+            // Calculate leading zeros based on compact format and mantissa
+            const mantissaZeros = Math.clz32((mantissa << 8) >>> 8) - 8; // Count leading zeros in mantissa (excluding sign bit)
+            const adjustedMantissa = mantissa << mantissaZeros; // Adjust mantissa for leading zeros
+            
+            // Calculate base zeros from exponent
+            const baseZeros = 8 * (0x1d - exponent); // Each exponent difference represents 8 bits
+            
+            // Calculate total zeros including mantissa precision
+            const targetZeros = Math.max(0, baseZeros + Math.floor(Math.log2(0x00ffff / adjustedMantissa)));
+
+            while (mining) {
+                const version = 2;
+                const prevBlock = new Uint8Array(32);
+                const merkleRoot = crypto.getRandomValues(new Uint8Array(32));
+                const timestamp = Math.floor(Date.now() / 1000);
+                const bits = parseInt(controls.difficultyBits.value, 16);
+
+                const header = new Uint8Array([
+                    version & 0xFF, (version >> 8) & 0xFF, (version >> 16) & 0xFF, (version >> 24) & 0xFF,
+                    ...prevBlock,
+                    ...merkleRoot,
+                    timestamp & 0xFF, (timestamp >> 8) & 0xFF, (timestamp >> 16) & 0xFF, (timestamp >> 24) & 0xFF,
+                    bits & 0xFF, (bits >> 8) & 0xFF, (bits >> 16) & 0xFF, (bits >> 24) & 0xFF
+                ]);
+
+                const [nonce, hashHex, miningTime, phase] = await mineBlock(header, targetZeros);
+                
+                // Update peak hash rate
+                const hashRate = nonce / miningTime;
+                if (hashRate > peakHashRate) {
+                    peakHashRate = hashRate;
+                }
+                updateStats();
+
+                if (nonce !== null) {
+                    // Format phase as fraction of π
+                    const phaseInPi = (phase / Math.PI).toFixed(3);
+
+                    log(`<tr>
+                        <td>${targetZeros}</td>
+                        <td>${nonce.toLocaleString()}</td>
+                        <td>${hashHex}</td>
+                        <td>${miningTime.toFixed(2)}</td>
+                        <td>${(nonce / miningTime).toFixed(2)}</td>
+                        <td>${phaseInPi}</td>
+                    </tr>`, 'nonce');
+
+                    if (controls.autoIncreaseDifficulty.checked) {
+                        // Get current bits components
+                        let currentBits = parseInt(controls.difficultyBits.value, 16);
+                        let exponent = currentBits >> 24;
+                        let mantissa = currentBits & 0x00ffffff;
+                        
+                        // Count leading zeros in current mantissa
+                        const leadingZeros = Math.clz32((mantissa << 8) >>> 8) - 8;
+                        
+                        // Adjust mantissa for leading zeros
+                        mantissa = mantissa << leadingZeros;
+                        
+                        // Decrease by exactly 1 bit (divide mantissa by 2)
+                        mantissa = mantissa >>> 1;
+                        
+                        // If mantissa underflows, adjust exponent
+                        if (mantissa < 0x800000) {
+                            mantissa = mantissa << 1;
+                            exponent--;
+                        }
+                        
+                        // Ensure we don't go below genesis difficulty
+                        const newBits = (exponent << 24) | mantissa;
+                        const minBits = 0x1d00ffff;
+                        currentBits = Math.max(minBits, newBits);
+                        
+                        controls.difficultyBits.value = currentBits.toString(16);
+                        updateTarget();
+                        
+                        // Update mining parameters with new target
+                        const newTarget = calculateTargetHash(currentBits);
+                        targetHashDisplay.innerText = '0x' + newTarget;
+                        document.getElementById('targetHashSummary').innerText = '0x' + newTarget;
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            startButton.disabled = false;
+            stopButton.disabled = true;
+        }
+
+        // Initialize event handlers
+        startButton.onclick = () => {
+            mining = true;
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            updateTarget();
+            initializeConsole();
+            main();
+        };
+
+        function cleanupWorkers() {
+            // Terminate all workers and clear pools
+            for (const worker of workerPool.keys()) {
+                worker.terminate();
+            }
+            workerPool.clear();
+            workerPromises.clear();
+            workerStats.clear();
+            activeWorkers = 0;
+            updateWorkerTable();
+
+            // Clear any pending particles
+            PARTICLES.length = 0;
+
+            // Reset visualization
+            FREQUENCY_HISTORY.fill(0);
+            PHASE_HISTORY.fill(0);
+        }
+
+        stopButton.onclick = () => {
+            mining = false;
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            cleanupWorkers();
+        };
+
+        // Clean up workers when window closes
+        window.addEventListener('beforeunload', () => {
+            if (mining) {
+                cleanupWorkers();
+            }
+        });
+
+        // Visualization animation state
+        let animationFrameId = null;
+        let lastVisualizationUpdate = 0;
+        const VISUALIZATION_FPS = 30;
+        const VISUALIZATION_INTERVAL = 1000 / VISUALIZATION_FPS;
+
+        function startVisualization() {
+            if (!animationFrameId) {
+                lastVisualizationUpdate = performance.now();
+                animationFrameId = requestAnimationFrame(visualizationLoop);
+            }
+        }
+
+        function stopVisualization() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+        }
+
+        function visualizationLoop(timestamp) {
+            if (timestamp - lastVisualizationUpdate >= VISUALIZATION_INTERVAL) {
+                drawFrequencyPattern(timestamp);
+                lastVisualizationUpdate = timestamp;
+            }
+            animationFrameId = requestAnimationFrame(visualizationLoop);
+        }
+
+        // Start visualization when mining starts
+        startButton.onclick = () => {
+            mining = true;
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            updateTarget();
+            initializeConsole();
+            startVisualization();  // Start visualization
+            main();
+        };
+
+        // Stop visualization when mining stops
+        stopButton.onclick = () => {
+            mining = false;
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            cleanupWorkers();
+            stopVisualization();  // Stop visualization
+        };
+    </script>
+</body>
+</html>
