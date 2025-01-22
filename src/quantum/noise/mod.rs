@@ -1,107 +1,110 @@
-use wasm_bindgen::prelude::*;
-use crate::quantum::core::matrix::ComplexMatrix;
 use crate::quantum::core::complex::Complex;
-use rand::Rng;
+use crate::quantum::core::matrix::ComplexMatrix;
 
-#[wasm_bindgen]
-#[derive(Debug)]
-pub struct NoiseModel {
-    depolarizing_prob: f64,
-    bit_flip_prob: f64,
-    phase_flip_prob: f64,
-    amplitude_damping_prob: f64,
+pub enum NoiseType {
+    Depolarizing,
+    BitFlip,
+    PhaseFlip,
+    AmplitudeDamping,
+    Custom(Box<dyn Fn(f64) -> ComplexMatrix>),
 }
 
-#[wasm_bindgen]
-impl NoiseModel {
-    #[wasm_bindgen(constructor)]
-    pub fn new(
-        depolarizing: f64,
-        bit_flip: f64,
-        phase_flip: f64,
-        amplitude_damping: f64
-    ) -> NoiseModel {
-        NoiseModel {
-            depolarizing_prob: depolarizing,
-            bit_flip_prob: bit_flip,
-            phase_flip_prob: phase_flip,
-            amplitude_damping_prob: amplitude_damping,
+pub struct NoiseChannel {
+    noise_type: NoiseType,
+    strength: f64,
+}
+
+impl NoiseChannel {
+    pub fn new(noise_type: NoiseType, strength: f64) -> Self {
+        NoiseChannel {
+            noise_type,
+            strength,
         }
     }
 
-    pub fn generate_noise_matrix(&self) -> Result<ComplexMatrix, JsValue> {
-        let mut noise_matrix = ComplexMatrix::identity(2);
-        
-        // Apply depolarizing noise
-        if self.depolarizing_prob > 0.0 {
-            let pauli_x = ComplexMatrix::pauli_x();
-            let pauli_y = ComplexMatrix::pauli_y();
-            let pauli_z = ComplexMatrix::pauli_z();
-            
-            let depolarizing = pauli_x
-                .add(&pauli_y)?
-                .add(&pauli_z)?
-                .scalar_multiply(self.depolarizing_prob / 3.0);
-            
-            noise_matrix = noise_matrix.add(&depolarizing)?;
-        }
-        
-        // Apply bit flip noise
-        if self.bit_flip_prob > 0.0 {
-            let bit_flip = ComplexMatrix::pauli_x()
-                .scalar_multiply(self.bit_flip_prob);
-            noise_matrix = noise_matrix.add(&bit_flip)?;
-        }
-        
-        // Apply phase flip noise
-        if self.phase_flip_prob > 0.0 {
-            let phase_flip = ComplexMatrix::pauli_z()
-                .scalar_multiply(self.phase_flip_prob);
-            noise_matrix = noise_matrix.add(&phase_flip)?;
-        }
-        
-        // Apply amplitude damping
-        if self.amplitude_damping_prob > 0.0 {
-            let gamma = self.amplitude_damping_prob;
-            let mut damping = ComplexMatrix::new(2, 2);
-            damping.set(0, 0, &Complex::new(1.0, 0.0));
-            damping.set(1, 1, &Complex::new((1.0 - gamma).sqrt(), 0.0));
-            noise_matrix = noise_matrix.multiply(&damping)?;
-        }
-        
-        Ok(noise_matrix)
-    }
+    pub fn apply(&self, state: &mut ComplexMatrix) -> Result<(), &'static str> {
+        let noise_matrix = match self.noise_type {
+            NoiseType::Depolarizing => self.depolarizing_channel(self.strength),
+            NoiseType::BitFlip => self.bit_flip_channel(self.strength),
+            NoiseType::PhaseFlip => self.phase_flip_channel(self.strength),
+            NoiseType::AmplitudeDamping => self.amplitude_damping_channel(self.strength),
+            NoiseType::Custom(ref f) => f(self.strength),
+        };
 
-    pub fn apply_noise(&self, state: &mut ComplexMatrix) -> Result<(), JsValue> {
-        let noise_matrix = self.generate_noise_matrix()?;
-        state.multiply(&noise_matrix)?;
+        let result = noise_matrix.multiply(state)?;
+        *state = result;
         Ok(())
+    }
+
+    fn depolarizing_channel(&self, p: f64) -> ComplexMatrix {
+        let mut matrix = ComplexMatrix::new(2, 2);
+        matrix.set(0, 0, Complex::new(1.0 - p, 0.0));
+        matrix.set(1, 1, Complex::new(1.0 - p, 0.0));
+        matrix.set(0, 1, Complex::new(p/3.0, 0.0));
+        matrix.set(1, 0, Complex::new(p/3.0, 0.0));
+        matrix
+    }
+
+    fn bit_flip_channel(&self, p: f64) -> ComplexMatrix {
+        let mut matrix = ComplexMatrix::new(2, 2);
+        matrix.set(0, 0, Complex::new(1.0 - p, 0.0));
+        matrix.set(1, 1, Complex::new(1.0 - p, 0.0));
+        matrix.set(0, 1, Complex::new(p, 0.0));
+        matrix.set(1, 0, Complex::new(p, 0.0));
+        matrix
+    }
+
+    fn phase_flip_channel(&self, p: f64) -> ComplexMatrix {
+        let mut matrix = ComplexMatrix::new(2, 2);
+        matrix.set(0, 0, Complex::new(1.0 - p, 0.0));
+        matrix.set(1, 1, Complex::new(-(1.0 - p), 0.0));
+        matrix.set(0, 1, Complex::new(0.0, p));
+        matrix.set(1, 0, Complex::new(0.0, -p));
+        matrix
+    }
+
+    fn amplitude_damping_channel(&self, gamma: f64) -> ComplexMatrix {
+        let mut matrix = ComplexMatrix::new(2, 2);
+        matrix.set(0, 0, Complex::new(1.0, 0.0));
+        matrix.set(1, 1, Complex::new((1.0 - gamma).sqrt(), 0.0));
+        matrix.set(0, 1, Complex::new(gamma.sqrt(), 0.0));
+        matrix
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::f64::EPSILON;
 
     #[test]
-    fn test_noise_model_creation() {
-        let model = NoiseModel::new(0.1, 0.2, 0.3, 0.4);
-        assert!((model.depolarizing_prob - 0.1).abs() < EPSILON);
-        assert!((model.bit_flip_prob - 0.2).abs() < EPSILON);
-        assert!((model.phase_flip_prob - 0.3).abs() < EPSILON);
-        assert!((model.amplitude_damping_prob - 0.4).abs() < EPSILON);
+    fn test_depolarizing_channel() {
+        let noise = NoiseChannel::new(NoiseType::Depolarizing, 0.1);
+        let mut state = ComplexMatrix::new(2, 2);
+        state.set(0, 0, Complex::new(1.0, 0.0));
+        assert!(noise.apply(&mut state).is_ok());
     }
 
     #[test]
-    fn test_noise_matrix_generation() -> Result<(), JsValue> {
-        let model = NoiseModel::new(0.1, 0.2, 0.3, 0.4);
-        let noise_matrix = model.generate_noise_matrix()?;
-        
-        // Verify matrix dimensions
-        assert_eq!(noise_matrix.rows(), 2);
-        assert_eq!(noise_matrix.cols(), 2);
-        
-        Ok(())
+    fn test_bit_flip_channel() {
+        let noise = NoiseChannel::new(NoiseType::BitFlip, 0.1);
+        let mut state = ComplexMatrix::new(2, 2);
+        state.set(0, 0, Complex::new(1.0, 0.0));
+        assert!(noise.apply(&mut state).is_ok());
+    }
+
+    #[test]
+    fn test_phase_flip_channel() {
+        let noise = NoiseChannel::new(NoiseType::PhaseFlip, 0.1);
+        let mut state = ComplexMatrix::new(2, 2);
+        state.set(0, 0, Complex::new(1.0, 0.0));
+        assert!(noise.apply(&mut state).is_ok());
+    }
+
+    #[test]
+    fn test_amplitude_damping_channel() {
+        let noise = NoiseChannel::new(NoiseType::AmplitudeDamping, 0.1);
+        let mut state = ComplexMatrix::new(2, 2);
+        state.set(0, 0, Complex::new(1.0, 0.0));
+        assert!(noise.apply(&mut state).is_ok());
     }
 }

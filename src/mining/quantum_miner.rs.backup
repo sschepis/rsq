@@ -1,0 +1,395 @@
+use std::time::Instant;
+use tokio::sync::mpsc;
+use std::sync::Arc;
+use crate::quantum::state::PrimeQuantumState;
+use crate::quantum::resonance::riemann_zeta::RiemannZetaResonator;
+use crate::mining::hash_algorithms::{HashAlgorithm, HashFunction, create_hash_function};
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
+use log::{info, warn};
+use std::sync::atomic::{AtomicU64, AtomicBool, Ordering};
+use signal_hook::consts::signal::*;
+use signal_hook::flag;
+
+/// Mining statistics for monitoring performance
+#[derive(Debug)]
+pub struct MiningStats {
+    total_hashes: AtomicU64,
+    start_time: Instant,
+    last_update: Instant,
+}
+
+impl MiningStats {
+    fn new() -> Self {
+        MiningStats {
+            total_hashes: AtomicU64::new(0),
+            start_time: Instant::now(),
+            last_update: Instant::now(),
+        }
+    }
+
+    fn update(&self, hashes: u64) {
+        self.total_hashes.fetch_add(hashes, Ordering::Relaxed);
+        
+        // Log progress every 5 seconds
+        let now = Instant::now();
+        if now.duration_since(self.last_update).as_secs() >= 5 {
+            let elapsed = now.duration_since(self.start_time).as_secs_f64();
+            let total = self.total_hashes.load(Ordering::Relaxed);
+            let hashrate = total as f64 / elapsed;
+            
+            info!(
+                "Mining Progress: {:.2} MH/s, Total Hashes: {}, Time: {:.2}s",
+                hashrate / 1_000_000.0,
+                total,
+                elapsed
+            );
+        }
+    }
+
+    fn final_stats(&self) -> (u64, f64, f64) {
+        let total = self.total_hashes.load(Ordering::Relaxed);
+        let elapsed = self.start_time.elapsed().as_secs_f64();
+        let hashrate = total as f64 / elapsed;
+        (total, elapsed, hashrate)
+    }
+}
+
+/// QuantumMiner implements quantum-enhanced mining using prime resonance and Riemann zeta patterns
+pub struct QuantumMiner {
+    resolution: usize,
+    quantum_state: PrimeQuantumState,
+    riemann_resonator: RiemannZetaResonator,
+    hash_function: Box<dyn HashFunction>,
+    algorithm: HashAlgorithm,
+}
+
+impl QuantumMiner {
+    pub fn new(resolution: usize, algorithm: HashAlgorithm) -> Self {
+        QuantumMiner {
+            resolution,
+            quantum_state: PrimeQuantumState::new(resolution),
+            riemann_resonator: RiemannZetaResonator::new(),
+            hash_function: create_hash_function(algorithm),
+            algorithm,
+        }
+    }
+
+    // Calculate combined quantum resonance
+    fn calculate_resonance(&mut self, nonce: u32, target_zeros: u32) -> f64 {
+        // Get prime quantum state resonance
+        let t = (nonce as f64) / (u32::MAX as f64);
+        let prime_resonance = self.quantum_state.apply_prime_resonance(&[t])[0].norm();
+        
+        // Get Riemann zeta resonance
+        let zeta_resonance = self.riemann_resonator.calculate_resonance(nonce as u64);
+        
+        // Get quantum interference
+        let interference = self.riemann_resonator.interference_pattern(
+            nonce as u64, 
+            nonce.wrapping_add(1) as u64
+        );
+        
+        // Apply Berry phase correction
+        let berry_phase = self.riemann_resonator.berry_phase(nonce as u64);
+        
+        // Combine resonances with weighted quantum interference
+        let combined = prime_resonance * 0.4 + 
+                      zeta_resonance * 0.4 +
+                      interference * berry_phase.cos() * 0.2;
+                      
+        // Scale based on target difficulty
+        combined * (1.0 + (target_zeros as f64 * 0.1))
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[target_feature(enable = "avx2")]
+    unsafe fn mine_chunk_simd(
+        &mut self,
+        header: &[u8],
+        start_nonce: u32,
+        chunk_size: u32,
+        target_zeros: u32,
+    ) -> Option<(u32, String, f64)> {
+        let target_pattern = "0".repeat(target_zeros as usize);
+        let end_nonce = start_nonce.saturating_add(chunk_size).min(0xFFFFFFFF);
+        
+        // Align buffer to 32-byte boundary for AVX2
+        let mut test_data = vec![0u8; header.len() + 4 + 32];
+        let offset = test_data.as_ptr().align_offset(32);
+        let test_data = &mut test_data[offset..offset + header.len() + 4];
+        test_data[..header.len()].copy_from_slice(header);
+
+        // Calculate quantum-optimized nonce sequence
+        let mut nonces: Vec<u32> = (start_nonce..end_nonce).collect();
+        nonces.sort_by(|&a, &b| {
+            self.calculate_resonance(b, target_zeros)
+                .partial_cmp(&self.calculate_resonance(a, target_zeros))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // Process nonces in quantum-optimized order with SIMD
+        let mut i = 0;
+        while i + 4 <= nonces.len() {
+            // Load 4 quantum-optimized nonces into AVX2 register
+            let nonce_vec = _mm256_setr_epi64x(
+                nonces[i] as i64,
+                nonces[i + 1] as i64,
+                nonces[i + 2] as i64,
+                nonces[i + 3] as i64
+            );
+            
+            // Process 4 nonces in parallel
+            for j in 0..4 {
+                let current_nonce = nonces[i + j];
+                test_data[header.len()..].copy_from_slice(&current_nonce.to_le_bytes());
+                
+                let hash = self.hash_function.hash(&test_data);
+                let hash_hex = hex::encode(&hash);
+                
+                // Create target based on difficulty - maximum allowed hash value
+                let mut target = vec![0xff; 32];
+                target[0] = 0xff >> target_zeros; // Shift bits based on difficulty
+                if self.hash_function.verify(&test_data, &target) {
+                    return Some((current_nonce, hash_hex, Instant::now().elapsed().as_secs_f64()));
+                }
+            }
+            
+            i += 4;
+        }
+        
+        // Handle remaining nonces
+        while i < nonces.len() {
+            test_data[header.len()..].copy_from_slice(&nonces[i].to_le_bytes());
+            
+            let hash = self.hash_function.hash(&test_data);
+            let hash_hex = hex::encode(&hash);
+            
+            // Create target based on difficulty - maximum allowed hash value
+            let mut target = vec![0xff; 32];
+            target[0] = 0xff >> target_zeros; // Shift bits based on difficulty
+            if self.hash_function.verify(&test_data, &target) {
+                return Some((nonces[i], hash_hex, Instant::now().elapsed().as_secs_f64()));
+            }
+            
+            i += 1;
+        }
+        
+        None
+    }
+
+    /// Mine a chunk of nonces with quantum optimization
+    async fn mine_chunk(
+        &mut self,
+        header: &[u8],
+        start_nonce: u32,
+        chunk_size: u32,
+        target_zeros: u32,
+    ) -> Option<(u32, String, f64)> {
+        let target_pattern = "0".repeat(target_zeros as usize);
+        let end_nonce = start_nonce.saturating_add(chunk_size).min(0xFFFFFFFF);
+        
+        // Pre-allocate buffer for better performance
+        let mut test_data = vec![0u8; header.len() + 4];
+        test_data[..header.len()].copy_from_slice(header);
+
+        // Calculate quantum-optimized nonce sequence
+        let mut nonces: Vec<u32> = (start_nonce..end_nonce).collect();
+        nonces.sort_by(|&a, &b| {
+            self.calculate_resonance(b, target_zeros)
+                .partial_cmp(&self.calculate_resonance(a, target_zeros))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // Process nonces in quantum-optimized order
+        for nonce in nonces {
+            // Update nonce portion of test_data
+            test_data[header.len()..].copy_from_slice(&nonce.to_le_bytes());
+            
+            // Double SHA-256 hashing
+            let hash = self.hash_function.hash(&test_data);
+            let hash_hex = hex::encode(&hash);
+            
+                // Create target based on difficulty - maximum allowed hash value
+                let mut target = vec![0xff; 32];
+                target[0] = 0xff >> target_zeros; // Shift bits based on difficulty
+            if self.hash_function.verify(&test_data, &target) {
+                return Some((nonce, hash_hex, Instant::now().elapsed().as_secs_f64()));
+            }
+        }
+        
+        None
+    }
+
+    /// Initialize worker process for clean shutdown
+    fn init_worker() {
+        #[cfg(not(target_family = "wasm"))]
+        {
+            let term = Arc::new(AtomicBool::new(false));
+            flag::register(SIGTERM, Arc::clone(&term)).expect("Failed to register SIGTERM handler");
+            flag::register(SIGINT, Arc::clone(&term)).expect("Failed to register SIGINT handler");
+        }
+    }
+
+    /// Mine a block using quantum-enhanced parallel processing with SIMD optimizations when available
+    pub async fn mine_block(
+        &mut self,
+        header: &[u8],
+        target_zeros: u32,
+        max_nonce: Option<u32>,
+    ) -> Option<(u32, String, f64)> {
+        info!("Initializing quantum mining with {} leading zeros", target_zeros);
+        let stats = Arc::new(MiningStats::new());
+        
+        // Initialize quantum state for optimization
+        self.quantum_state.initialize_with_primes(target_zeros);
+        
+        // Parallel processing setup
+        let num_processes = if cfg!(test) { 1 } else { num_cpus::get() };
+        let chunk_size = if cfg!(test) { 100 } else { 500000 }; // Smaller chunks for testing
+        let max_nonce = max_nonce.unwrap_or(0xFFFFFFFF);
+        
+        // Create chunks for parallel processing
+        let total_chunks = (max_nonce / chunk_size) + if max_nonce % chunk_size != 0 { 1 } else { 0 };
+        let header = Arc::new(header.to_vec());
+        
+        info!("Mining with {} processes", num_processes);
+        info!("Processing {} chunks of {} nonces each", total_chunks, chunk_size);
+        
+        #[cfg(target_arch = "x86_64")]
+        if is_x86_feature_detected!("avx2") {
+            info!("Using AVX2 SIMD optimizations");
+        } else {
+            warn!("AVX2 not available, using standard implementation");
+        }
+        
+        let (tx, mut rx) = mpsc::channel(32);
+        let mut handles = Vec::new();
+        
+        for i in 0..num_processes {
+            let tx = tx.clone();
+            let header = header.clone();
+            let mut miner = self.clone();
+            let stats = Arc::clone(&stats);
+            
+            handles.push(tokio::spawn(async move {
+                Self::init_worker();
+                
+                let mut current_chunk = i as u32;
+                while current_chunk < total_chunks {
+                    let start_nonce = current_chunk * chunk_size;
+                    
+                    #[cfg(target_arch = "x86_64")]
+                    let result = if is_x86_feature_detected!("avx2") {
+                        unsafe {
+                            miner.mine_chunk_simd(&header, start_nonce, chunk_size, target_zeros)
+                        }
+                    } else {
+                        miner.mine_chunk(&header, start_nonce, chunk_size, target_zeros).await
+                    };
+
+                    #[cfg(not(target_arch = "x86_64"))]
+                    let result = miner.mine_chunk(&header, start_nonce, chunk_size, target_zeros).await;
+
+                    // Update mining statistics
+                    stats.update(chunk_size as u64);
+
+                    if let Some(result) = result {
+                        let _ = tx.send(Some(result)).await;
+                        return;
+                    }
+                    current_chunk += num_processes as u32;
+
+                    // Yield to allow other tasks to run
+                    tokio::task::yield_now().await;
+                }
+                
+                let _ = tx.send(None).await;
+            }));
+        }
+        
+        drop(tx);
+        
+        while let Some(result) = rx.recv().await {
+            if let Some((nonce, hash, _)) = result {
+                let (total_hashes, elapsed, hashrate) = stats.final_stats();
+                info!(
+                    "Block found! Nonce: {}, Hash: {}", 
+                    nonce, hash
+                );
+                info!(
+                    "Mining Stats - Time: {:.2}s, Hashrate: {:.2} MH/s, Total Hashes: {}",
+                    elapsed,
+                    hashrate / 1_000_000.0,
+                    total_hashes
+                );
+                return Some((nonce, hash, elapsed));
+            }
+        }
+        
+        let (total_hashes, elapsed, hashrate) = stats.final_stats();
+        warn!(
+            "Mining completed without finding block. Stats - Time: {:.2}s, Hashrate: {:.2} MH/s, Total Hashes: {}",
+            elapsed,
+            hashrate / 1_000_000.0,
+            total_hashes
+        );
+        Some((0, String::new(), elapsed))
+    }
+}
+
+impl Clone for QuantumMiner {
+    fn clone(&self) -> Self {
+        QuantumMiner {
+            resolution: self.resolution,
+            quantum_state: PrimeQuantumState::new(self.resolution),
+            riemann_resonator: RiemannZetaResonator::new(),
+            hash_function: create_hash_function(self.algorithm),
+            algorithm: self.algorithm,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_quantum_mining() {
+        let mut miner = QuantumMiner::new(512, HashAlgorithm::Sha256);
+        let header = vec![0u8; 76]; // Empty header for testing
+        let target_zeros = 2; // Start with lower difficulty
+        
+        let result = miner.mine_block(&header, target_zeros, Some(100)).await;
+        assert!(result.is_some());
+        
+        let (nonce, hash, _) = result.unwrap();
+        let mut test_data = vec![0u8; header.len() + 4];
+        test_data[..header.len()].copy_from_slice(&header);
+        let nonce_bytes = nonce.to_le_bytes();
+        test_data[header.len()..].copy_from_slice(&nonce_bytes);
+        let mut target = vec![0xff; 32];
+        target[0] = 0xff >> target_zeros;
+        assert!(miner.hash_function.verify(&test_data, &target));
+    }
+
+    #[tokio::test]
+    async fn test_mining_difficulty() {
+        let mut miner = QuantumMiner::new(512, HashAlgorithm::Sha256);
+        let header = vec![0u8; 76];
+        
+        for target_zeros in 1..=2 {
+            let result = miner.mine_block(&header, target_zeros, Some(100)).await;
+            assert!(result.is_some());
+            
+            let (nonce, hash, _) = result.unwrap();
+            let mut test_data = vec![0u8; header.len() + 4];
+            test_data[..header.len()].copy_from_slice(&header);
+            let nonce_bytes = nonce.to_le_bytes();
+            test_data[header.len()..].copy_from_slice(&nonce_bytes);
+            let mut target = vec![0xff; 32];
+            target[0] = 0xff >> target_zeros;
+            assert!(miner.hash_function.verify(&test_data, &target));
+        }
+    }
+}

@@ -2,7 +2,9 @@ use std::f64::consts::{PI, E};
 use rand::Rng;
 
 mod prime_wave;
+pub mod riemann_zeta;
 pub use prime_wave::PrimeWaveFunction;
+pub use riemann_zeta::RiemannZetaResonator;
 
 pub struct ResonanceFunction {
     // Base constants we can use in our resonance functions

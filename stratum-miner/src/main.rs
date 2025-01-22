@@ -152,8 +152,9 @@ const RESONANCE_THRESHOLD: f64 = 0.00001;
 const QUANTUM_BATCH_SIZE: usize = 1000;
 
 // Your BTC wallet address here
-const WALLET_ADDRESS: &str = "lonestar108.worker1";
-const WORKER_NAME: &str = "x";
+const USER_NAME: &str = "lonestar108";
+const WORKER_NAME: &str = "worker1";
+const PASSWORD: &str = "d=0.002428";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -200,7 +201,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let auth = json!({
         "id": 2,
         "method": "mining.authorize",
-        "params": [format!("{}.{}", WALLET_ADDRESS, WORKER_NAME), "d=0.002428"]
+        "params": [format!("{}.{}", USER_NAME, WORKER_NAME), PASSWORD]
     });
     writer.write_all(format!("{}\n", auth.to_string()).as_bytes()).await?;
 
@@ -274,7 +275,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                     "id": 4,
                                     "method": "mining.submit",
                                     "params": [
-                                        format!("{}.{}", WALLET_ADDRESS, WORKER_NAME),
+                                        format!("{}.{}", USER_NAME, WORKER_NAME),
                                         job_id,
                                         format!("{:08x}", nonce)
                                     ]

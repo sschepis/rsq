@@ -1,4 +1,9 @@
 pub mod stratum_v1;
+pub mod quantum_miner;
+pub mod hash_algorithms;
+
+pub use quantum_miner::QuantumMiner;
+pub use hash_algorithms::{HashAlgorithm, HashFunction, create_hash_function};
 
 use sha2::{Sha256, Digest};
 use std::sync::Arc;

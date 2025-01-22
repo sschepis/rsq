@@ -1,0 +1,180 @@
+use std::ops::{Add, Mul};
+use crate::quantum::core::complex::Complex;
+use std::sync::OnceLock;
+
+static PRIME_CACHE: OnceLock<Vec<u32>> = OnceLock::new();
+
+const MAX_PRIMES: usize = 1024; // Increased cache size
+const TUNNELING_STRENGTH: f64 = 0.5; // Optimized tunneling coefficient
+const CORRELATION_STRENGTH: f64 = 0.2; // Optimized correlation coefficient
+const PHASE_ALIGNMENT_ROUNDS: usize = 4; // Increased phase alignment
+
+pub struct PrimeQuantumState {
+    state: Vec<Complex>,
+    resolution: usize,
+    amplitude_boost: Complex,
+    interference_weights: Vec<f64>,
+    phase_cache: Vec<Complex>, // Cache for phase factors
+}
+
+impl PrimeQuantumState {
+    pub fn new(resolution: usize) -> Self {
+        let mut state = Vec::with_capacity(resolution);
+        let mut interference_weights = Vec::with_capacity(resolution);
+        let mut phase_cache = Vec::with_capacity(resolution);
+        
+        // Initialize phase cache for faster computations
+        for i in 0..resolution {
+            let phase = 2.0 * std::f64::consts::PI * (i as f64) / (resolution as f64);
+            let phase_factor = Complex::new(phase.cos(), phase.sin());
+            phase_cache.push(phase_factor);
+            state.push(phase_factor);
+            interference_weights.push(1.0 / (i + 1) as f64);
+        }
+        
+        PrimeQuantumState {
+            state,
+            resolution,
+            amplitude_boost: Complex::new(1.0, 0.0),
+            interference_weights,
+            phase_cache,
+        }
+    }
+
+    pub fn initialize_with_primes(&mut self, target_zeros: u32) {
+        // Get or initialize prime cache
+        let primes = PRIME_CACHE.get_or_init(|| {
+            let mut primes = Vec::with_capacity(MAX_PRIMES);
+            let mut n = 2;
+            while primes.len() < MAX_PRIMES {
+                if is_prime(n) {
+                    primes.push(n);
+                }
+                n += 1;
+            }
+            primes
+        });
+        
+        // Initialize quantum state with prime-based phases
+        for i in 0..self.resolution {
+            let prime = primes[i % primes.len()] as f64;
+            let phase = 2.0 * std::f64::consts::PI * prime / (self.resolution as f64);
+            self.state[i] = Complex::new(phase.cos(), phase.sin());
+        }
+        
+        // Enhanced amplitude boost based on target difficulty
+        let boost = 1.0 + (target_zeros as f64 * 0.15); // Increased boost factor
+        self.amplitude_boost = Complex::new(boost, 0.0);
+    }
+
+    pub fn apply_prime_resonance(&mut self, t: &[f64]) -> Vec<Complex> {
+        let mut resonance = vec![Complex::new(0.0, 0.0); t.len()];
+        
+        // Precompute common factors
+        let resolution_f64 = self.resolution as f64;
+        let half_resolution = resolution_f64 / 2.0;
+        let quarter_resolution_sq = (resolution_f64 / 4.0).powi(2);
+        
+        // Apply prime-based quantum resonance
+        for (i, &time) in t.iter().enumerate() {
+            let mut pattern = Complex::new(0.0, 0.0);
+            
+            // Calculate prime resonance pattern using cached phases
+            for (j, &state) in self.state.iter().enumerate() {
+                let weight = self.interference_weights[j];
+                pattern = pattern + state * Complex::new(weight * 0.3, 0.0);
+            }
+            
+            // Apply quantum interference effects
+            let mut interference_sum = Complex::new(0.0, 0.0);
+            for j in 0..self.resolution {
+                let phase_factor = self.phase_cache[j];
+                let gaussian = (-((time - j as f64).powi(2) / 0.1)).exp();
+                interference_sum = interference_sum + phase_factor * Complex::new(gaussian, 0.0);
+            }
+            resonance[i] = resonance[i] + interference_sum;
+            
+            // Apply quantum tunneling effects
+            let mut tunneling_sum = Complex::new(0.0, 0.0);
+            for j in 1..self.resolution - 1 {
+                let gap_phase = self.phase_cache[j];
+                let interference = gap_phase * self.amplitude_boost * TUNNELING_STRENGTH;
+                tunneling_sum = tunneling_sum + interference;
+            }
+            resonance[i] = resonance[i] + tunneling_sum;
+            
+            // Apply quantum correlation effects
+            let mut correlation_sum = Complex::new(0.0, 0.0);
+            for j in 0..self.resolution {
+                let correlation = self.phase_cache[j] * 
+                    Complex::new(self.interference_weights[j] * CORRELATION_STRENGTH, 0.0);
+                correlation_sum = correlation_sum + correlation;
+            }
+            resonance[i] = resonance[i] + correlation_sum;
+            
+            // Apply final quantum amplification
+            resonance[i] = resonance[i] * Complex::new(0.4, 0.0);
+        }
+        
+        // Apply quantum phase alignment
+        for round in 0..PHASE_ALIGNMENT_ROUNDS {
+            for i in 0..self.resolution {
+                let weight = (-(((i + round * self.resolution) as f64 - half_resolution).powi(2) / 
+                    (2.0 * quarter_resolution_sq))).exp();
+                let phase = self.phase_cache[i];
+                self.state[i] = self.state[i] * phase * Complex::new(weight, 0.0);
+            }
+        }
+        
+        // Apply quantum avalanche effect
+        for i in 0..self.resolution {
+            let avalanche = (-((i as f64 - half_resolution).powi(2) / 
+                (2.0 * quarter_resolution_sq))).exp();
+            self.state[i] = self.state[i] * Complex::new(1.0 + 0.3 * avalanche, 0.0);
+        }
+        
+        resonance
+    }
+}
+
+fn is_prime(n: u32) -> bool {
+    if n <= 1 {
+        return false;
+    }
+    if n <= 3 {
+        return true;
+    }
+    if n % 2 == 0 || n % 3 == 0 {
+        return false;
+    }
+    
+    let mut i = 5;
+    while i * i <= n {
+        if n % i == 0 || n % (i + 2) == 0 {
+            return false;
+        }
+        i += 6;
+    }
+    true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_prime_resonance() {
+        let mut state = PrimeQuantumState::new(16);
+        state.initialize_with_primes(4);
+        let t = vec![0.1, 0.2, 0.3];
+        let resonance = state.apply_prime_resonance(&t);
+        assert_eq!(resonance.len(), t.len());
+    }
+
+    #[test]
+    fn test_initialization() {
+        let state = PrimeQuantumState::new(32);
+        assert_eq!(state.state.len(), 32);
+        assert_eq!(state.interference_weights.len(), 32);
+    }
+}

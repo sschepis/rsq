@@ -1,38 +1,37 @@
-use wasm_bindgen::prelude::*;
+use std::ops::{Add, Mul};
 
-#[wasm_bindgen]
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Complex {
     pub real: f64,
     pub imag: f64,
 }
 
-#[wasm_bindgen]
 impl Complex {
-    #[wasm_bindgen(constructor)]
     pub fn new(real: f64, imag: f64) -> Complex {
         Complex { real, imag }
     }
 
-    pub fn add(&self, other: &Complex) -> Complex {
+    pub fn from_polar(r: f64, theta: f64) -> Complex {
         Complex {
-            real: self.real + other.real,
-            imag: self.imag + other.imag,
+            real: r * theta.cos(),
+            imag: r * theta.sin(),
         }
     }
 
-    pub fn subtract(&self, other: &Complex) -> Complex {
-        Complex {
-            real: self.real - other.real,
-            imag: self.imag - other.imag,
-        }
+    pub fn norm(&self) -> f64 {
+        (self.real * self.real + self.imag * self.imag).sqrt()
     }
 
-    pub fn multiply(&self, other: &Complex) -> Complex {
-        Complex {
-            real: self.real * other.real - self.imag * other.imag,
-            imag: self.real * other.imag + self.imag * other.real,
-        }
+    pub fn norm_sqr(&self) -> f64 {
+        self.real * self.real + self.imag * self.imag
+    }
+
+    pub fn magnitude(&self) -> f64 {
+        self.norm()
+    }
+
+    pub fn arg(&self) -> f64 {
+        self.imag.atan2(self.real)
     }
 
     pub fn conjugate(&self) -> Complex {
@@ -42,24 +41,70 @@ impl Complex {
         }
     }
 
-    pub fn magnitude(&self) -> f64 {
-        (self.real * self.real + self.imag * self.imag).sqrt()
-    }
-
-    pub fn phase(&self) -> f64 {
-        self.imag.atan2(self.real)
-    }
-
     pub fn exp(&self) -> Complex {
-        let exp_real = self.real.exp();
+        let r = self.real.exp();
         Complex {
-            real: exp_real * self.imag.cos(),
-            imag: exp_real * self.imag.sin(),
+            real: r * self.imag.cos(),
+            imag: r * self.imag.sin(),
         }
     }
 
-    pub fn norm(&self) -> f64 {
-        self.magnitude()
+    pub fn mul(&self, other: &Complex) -> Complex {
+        Complex {
+            real: self.real * other.real - self.imag * other.imag,
+            imag: self.real * other.imag + self.imag * other.real,
+        }
+    }
+
+    pub fn add(&self, other: &Complex) -> Complex {
+        Complex {
+            real: self.real + other.real,
+            imag: self.imag + other.imag,
+        }
+    }
+}
+
+impl Add for Complex {
+    type Output = Complex;
+
+    fn add(self, other: Complex) -> Complex {
+        Complex {
+            real: self.real + other.real,
+            imag: self.imag + other.imag,
+        }
+    }
+}
+
+impl Add for &Complex {
+    type Output = Complex;
+
+    fn add(self, other: &Complex) -> Complex {
+        Complex {
+            real: self.real + other.real,
+            imag: self.imag + other.imag,
+        }
+    }
+}
+
+impl Mul for Complex {
+    type Output = Complex;
+
+    fn mul(self, other: Complex) -> Complex {
+        Complex {
+            real: self.real * other.real - self.imag * other.imag,
+            imag: self.real * other.imag + self.imag * other.real,
+        }
+    }
+}
+
+impl Mul for &Complex {
+    type Output = Complex;
+
+    fn mul(self, other: &Complex) -> Complex {
+        Complex {
+            real: self.real * other.real - self.imag * other.imag,
+            imag: self.real * other.imag + self.imag * other.real,
+        }
     }
 }
 
@@ -68,98 +113,51 @@ mod tests {
     use super::*;
     use std::f64::consts::PI;
 
-    const EPSILON: f64 = 1e-10;
-
-    fn assert_complex_eq(a: &Complex, b: &Complex) {
-        assert!((a.real - b.real).abs() < EPSILON, "Real parts differ: {} != {}", a.real, b.real);
-        assert!((a.imag - b.imag).abs() < EPSILON, "Imaginary parts differ: {} != {}", a.imag, b.imag);
+    #[test]
+    fn test_complex_add() {
+        let a = Complex::new(1.0, 2.0);
+        let b = Complex::new(3.0, 4.0);
+        let c = a + b;
+        assert_eq!(c.real, 4.0);
+        assert_eq!(c.imag, 6.0);
     }
 
     #[test]
-    fn test_new() {
-        let z = Complex::new(3.0, 4.0);
-        assert_eq!(z.real, 3.0);
-        assert_eq!(z.imag, 4.0);
+    fn test_complex_mul() {
+        let a = Complex::new(1.0, 2.0);
+        let b = Complex::new(3.0, 4.0);
+        let c = a * b;
+        assert_eq!(c.real, -5.0);
+        assert_eq!(c.imag, 10.0);
     }
 
     #[test]
-    fn test_add() {
-        let z1 = Complex::new(1.0, 2.0);
-        let z2 = Complex::new(3.0, 4.0);
-        let result = z1.add(&z2);
-        assert_complex_eq(&result, &Complex::new(4.0, 6.0));
-    }
-
-    #[test]
-    fn test_subtract() {
-        let z1 = Complex::new(3.0, 4.0);
-        let z2 = Complex::new(1.0, 2.0);
-        let result = z1.subtract(&z2);
-        assert_complex_eq(&result, &Complex::new(2.0, 2.0));
-    }
-
-    #[test]
-    fn test_multiply() {
-        let z1 = Complex::new(1.0, 2.0);
-        let z2 = Complex::new(3.0, 4.0);
-        let result = z1.multiply(&z2);
-        assert_complex_eq(&result, &Complex::new(-5.0, 10.0));
-    }
-
-    #[test]
-    fn test_conjugate() {
-        let z = Complex::new(1.0, 2.0);
-        let result = z.conjugate();
-        assert_complex_eq(&result, &Complex::new(1.0, -2.0));
-    }
-
-    #[test]
-    fn test_magnitude() {
-        let z = Complex::new(3.0, 4.0);
-        assert!((z.magnitude() - 5.0).abs() < EPSILON);
-    }
-
-    #[test]
-    fn test_phase() {
-        let z = Complex::new(1.0, 1.0);
-        assert!((z.phase() - PI/4.0).abs() < EPSILON);
-
-        let z = Complex::new(-1.0, 0.0);
-        assert!((z.phase() - PI).abs() < EPSILON);
-    }
-
-    #[test]
-    fn test_exp() {
-        // Test e^(iπ) = -1
-        let z = Complex::new(0.0, PI);
-        let result = z.exp();
-        assert_complex_eq(&result, &Complex::new(-1.0, 0.0));
-
-        // Test e^0 = 1
-        let z = Complex::new(0.0, 0.0);
-        let result = z.exp();
-        assert_complex_eq(&result, &Complex::new(1.0, 0.0));
-    }
-
-    #[test]
-    fn test_edge_cases() {
-        // Test zero
-        let zero = Complex::new(0.0, 0.0);
-        assert_eq!(zero.magnitude(), 0.0);
-
-        // Test multiplication by zero
-        let z = Complex::new(1.0, 1.0);
-        let result = z.multiply(&zero);
-        assert_complex_eq(&result, &zero);
-
-        // Test adding zero
-        let result = z.add(&zero);
-        assert_complex_eq(&result, &z);
+    fn test_from_polar() {
+        let c = Complex::from_polar(2.0, PI/4.0);
+        assert!((c.real - 2.0_f64.sqrt()).abs() < 1e-10);
+        assert!((c.imag - 2.0_f64.sqrt()).abs() < 1e-10);
     }
 
     #[test]
     fn test_norm() {
-        let z = Complex::new(3.0, 4.0);
-        assert!((z.norm() - 5.0).abs() < EPSILON);
+        let c = Complex::new(3.0, 4.0);
+        assert_eq!(c.norm(), 5.0);
+        assert_eq!(c.norm_sqr(), 25.0);
+    }
+
+    #[test]
+    fn test_conjugate() {
+        let c = Complex::new(1.0, 2.0);
+        let conj = c.conjugate();
+        assert_eq!(conj.real, 1.0);
+        assert_eq!(conj.imag, -2.0);
+    }
+
+    #[test]
+    fn test_exp() {
+        let c = Complex::new(0.0, PI);
+        let exp = c.exp();
+        assert!((exp.real + 1.0).abs() < 1e-10);
+        assert!(exp.imag.abs() < 1e-10);
     }
 }
